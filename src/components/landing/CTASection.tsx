@@ -15,10 +15,10 @@ const CTASection = () => {
           transition={{ duration: 0.5 }}
           className="max-w-2xl mx-auto"
         >
-          <h2 className="text-3xl md:text-5xl tracking-tight text-background mb-6">
+          <h2 className="text-3xl md:text-5xl tracking-tight text-off-white mb-6">
             Your AI team is one message away
           </h2>
-          <p className="text-lg text-background/70 font-body mb-10 max-w-md mx-auto">
+          <p className="text-lg text-off-white/70 font-body mb-10 max-w-md mx-auto">
             Join thousands of businesses already saving time, growing faster, and serving customers better.
           </p>
 
