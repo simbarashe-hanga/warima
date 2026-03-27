@@ -5,7 +5,7 @@ const pillars = [
   {
     emoji: "💰",
     title: "Finance Assistant",
-    color: "bg-sage-light",
+    color: "bg-warima-green/15",
     features: [
       { icon: PiggyBank, label: "Savings planning" },
       { icon: Users, label: "Stokvel coordination" },
