@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
-const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Mission%20Control%20AI";
+const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
