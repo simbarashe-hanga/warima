@@ -32,8 +32,8 @@ const DemoChatSection = () => {
           className="bg-card rounded-2xl border border-border overflow-hidden shadow-lg"
         >
           {/* Chat header */}
-          <div className="bg-foreground text-background px-6 py-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-sage flex items-center justify-center text-foreground font-body font-bold text-sm">W</div>
+          <div className="bg-deep-forest text-off-white px-6 py-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-warima-green flex items-center justify-center text-off-white font-body font-bold text-sm">W</div>
             <div>
               <div className="font-body font-semibold">Warima</div>
               <div className="text-xs opacity-70 font-body">Online</div>
