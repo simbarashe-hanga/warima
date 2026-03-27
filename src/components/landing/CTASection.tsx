@@ -23,7 +23,7 @@ const CTASection = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="xl" className="bg-sage text-foreground hover:bg-sage/90 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all" asChild>
+            <Button size="xl" className="bg-gold-accent text-charcoal hover:bg-gold-accent/90 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all" asChild>
               <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
                 <MessageCircle className="w-5 h-5" />
                 Start on WhatsApp
