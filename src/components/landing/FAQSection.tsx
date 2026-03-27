@@ -9,7 +9,7 @@ import {
 const faqs = [
   {
     q: "Do I need to install anything?",
-    a: "Nope! Mission Control AI works entirely through WhatsApp. Just send a message and you're connected — no downloads, no sign-ups, no extra apps.",
+    a: "Nope! Warima works entirely through WhatsApp. Just send a message and you're connected — no downloads, no sign-ups, no extra apps.",
   },
   {
     q: "Is my data safe?",
@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: "Can I use it for my business?",
-    a: "Yes! Mission Control AI is built specifically for small businesses, entrepreneurs, and community groups. Whether you run a shop, a stokvel, or a freelance business — we've got you covered.",
+    a: "Yes! Warima is built specifically for small businesses, entrepreneurs, and community groups. Whether you run a shop, a stokvel, or a freelance business — we've got you covered.",
   },
   {
     q: "How does the multi-agent system work?",

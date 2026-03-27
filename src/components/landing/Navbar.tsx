@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
-const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Mission%20Control%20AI";
+const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
@@ -11,7 +11,7 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="container flex items-center justify-between h-16">
         <a href="#" className="font-display text-xl tracking-tight text-foreground">
-          Mission Control AI
+          Warima
         </a>
 
         <div className="hidden md:flex items-center gap-8">

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { MessageCircle, Play } from "lucide-react";
 import heroPhone from "@/assets/hero-phone.png";
 
-const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Mission%20Control%20AI";
+const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const HeroSection = () => {
   return (
@@ -26,7 +26,7 @@ const HeroSection = () => {
             </h1>
 
             <p className="text-lg text-muted-foreground font-body leading-relaxed mb-8 max-w-md">
-              Mission Control AI gives small businesses and communities expert-level guidance through the app they already use. No downloads. No complexity. Just results.
+              Warima gives small businesses and communities expert-level guidance through the app they already use. No downloads. No complexity. Just results.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -54,7 +54,7 @@ const HeroSection = () => {
             <div className="animate-float">
               <img
                 src={heroPhone}
-                alt="Mission Control AI WhatsApp conversation showing financial and marketing assistance"
+                alt="Warima WhatsApp conversation showing financial and marketing assistance"
                 width={400}
                 height={512}
                 className="w-full max-w-[400px] drop-shadow-2xl"
