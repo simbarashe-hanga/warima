@@ -6,7 +6,7 @@ const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const CTASection = () => {
   return (
-    <section className="py-20 md:py-28 bg-foreground">
+    <section className="py-20 md:py-28 bg-deep-forest">
       <div className="container text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
