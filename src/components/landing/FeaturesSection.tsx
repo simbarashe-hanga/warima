@@ -15,7 +15,7 @@ const pillars = [
   {
     emoji: "📢",
     title: "Marketing Agent",
-    color: "bg-sand-light",
+    color: "bg-gold-accent/15",
     features: [
       { icon: Lightbulb, label: "Campaign ideas" },
       { icon: FileText, label: "Content generation" },
