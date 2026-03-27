@@ -73,7 +73,7 @@ const SocialProofSection = () => {
             >
               <div className="flex gap-1 mb-4">
                 {[...Array(5)].map((_, j) => (
-                  <Star key={j} className="w-4 h-4 fill-sand text-sand" />
+                  <Star key={j} className="w-4 h-4 fill-gold-accent text-gold-accent" />
                 ))}
               </div>
               <p className="text-foreground font-body leading-relaxed mb-6">"{t.quote}"</p>

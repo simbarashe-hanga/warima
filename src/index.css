@@ -6,41 +6,42 @@
 
 @layer base {
   :root {
-    --background: 36 33% 95%;
-    --foreground: 60 4% 11%;
+    --background: 37 33% 94%;
+    --foreground: 0 0% 12%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 60 4% 11%;
+    --card: 37 25% 97%;
+    --card-foreground: 0 0% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 60 4% 11%;
+    --popover: 37 25% 97%;
+    --popover-foreground: 0 0% 12%;
 
-    --primary: 100 14% 67%;
-    --primary-foreground: 60 4% 11%;
+    --primary: 162 73% 21%;
+    --primary-foreground: 37 33% 94%;
 
-    --secondary: 36 20% 63%;
-    --secondary-foreground: 60 4% 11%;
+    --secondary: 46 64% 52%;
+    --secondary-foreground: 0 0% 12%;
 
-    --muted: 36 20% 90%;
-    --muted-foreground: 60 4% 40%;
+    --muted: 37 20% 90%;
+    --muted-foreground: 0 0% 40%;
 
-    --accent: 100 14% 67%;
-    --accent-foreground: 60 4% 11%;
+    --accent: 162 73% 21%;
+    --accent-foreground: 37 33% 94%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 36 15% 85%;
-    --input: 36 15% 85%;
-    --ring: 100 14% 67%;
+    --border: 37 15% 85%;
+    --input: 37 15% 85%;
+    --ring: 162 73% 21%;
 
     --radius: 0.75rem;
 
-    --sage: 100 14% 67%;
-    --sage-light: 100 14% 90%;
-    --sand: 36 20% 63%;
-    --sand-light: 36 33% 92%;
-    --warm-white: 36 33% 97%;
+    --warima-green: 162 73% 21%;
+    --deep-forest: 163 76% 14%;
+    --gold-accent: 46 64% 52%;
+    --clay-earth: 26 40% 39%;
+    --off-white: 37 33% 94%;
+    --charcoal: 0 0% 12%;
 
     --font-display: 'DM Serif Display', serif;
     --font-body: 'DM Sans', sans-serif;

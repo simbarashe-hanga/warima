@@ -16,8 +16,8 @@ const HeroSection = () => {
             transition={{ duration: 0.7, ease: "easeOut" }}
             className="max-w-xl"
           >
-            <div className="inline-flex items-center gap-2 bg-sage-light text-foreground px-4 py-1.5 rounded-full text-sm font-body mb-6">
-              <span className="w-2 h-2 rounded-full bg-sage" />
+            <div className="inline-flex items-center gap-2 bg-warima-green/10 text-foreground px-4 py-1.5 rounded-full text-sm font-body mb-6">
+              <span className="w-2 h-2 rounded-full bg-warima-green" />
               Powered by multi-agent AI
             </div>
 
