@@ -54,7 +54,7 @@ const DemoChatSection = () => {
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 font-body text-sm leading-relaxed whitespace-pre-line ${
                     msg.from === "user"
-                      ? "bg-sage text-foreground rounded-br-md"
+                      ? "bg-warima-green text-off-white rounded-br-md"
                       : "bg-card text-foreground border border-border rounded-bl-md"
                   }`}
                 >

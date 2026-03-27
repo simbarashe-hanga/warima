@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
+import warimaLogo from "@/assets/warima-logo.png";
 
 const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
@@ -10,8 +11,9 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="container flex items-center justify-between h-16">
-        <a href="#" className="font-display text-xl tracking-tight text-foreground">
-          Warima
+        <a href="#" className="flex items-center gap-2">
+          <img src={warimaLogo} alt="Warima" className="w-8 h-8" />
+          <span className="font-display text-xl tracking-tight text-foreground">Warima</span>
         </a>
 
         <div className="hidden md:flex items-center gap-8">

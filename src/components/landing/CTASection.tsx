@@ -29,7 +29,7 @@ const CTASection = () => {
                 Start on WhatsApp
               </a>
             </Button>
-            <Button size="xl" className="bg-transparent border-2 border-background/30 text-background hover:bg-background/10 transition-all" asChild>
+            <Button size="xl" className="bg-transparent border-2 border-off-white/30 text-off-white hover:bg-off-white/10 transition-all" asChild>
               <a href="#demo">
                 Book a Demo
                 <ArrowRight className="w-5 h-5" />
