@@ -26,7 +26,7 @@ const HeroSection = () => {
             </h1>
 
             <p className="text-lg text-muted-foreground font-body leading-relaxed mb-8 max-w-md">
-              Mission Control AI gives small businesses and communities expert-level guidance through the app they already use. No downloads. No complexity. Just results.
+              Warima gives small businesses and communities expert-level guidance through the app they already use. No downloads. No complexity. Just results.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
