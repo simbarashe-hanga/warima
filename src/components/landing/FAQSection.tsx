@@ -9,7 +9,7 @@ import {
 const faqs = [
   {
     q: "Do I need to install anything?",
-    a: "Nope! Mission Control AI works entirely through WhatsApp. Just send a message and you're connected — no downloads, no sign-ups, no extra apps.",
+    a: "Nope! Warima works entirely through WhatsApp. Just send a message and you're connected — no downloads, no sign-ups, no extra apps.",
   },
   {
     q: "Is my data safe?",
