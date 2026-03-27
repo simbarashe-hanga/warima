@@ -54,7 +54,7 @@ const HeroSection = () => {
             <div className="animate-float">
               <img
                 src={heroPhone}
-                alt="Mission Control AI WhatsApp conversation showing financial and marketing assistance"
+                alt="Warima WhatsApp conversation showing financial and marketing assistance"
                 width={400}
                 height={512}
                 className="w-full max-w-[400px] drop-shadow-2xl"

@@ -17,7 +17,7 @@ const faqs = [
   },
   {
     q: "Can I use it for my business?",
-    a: "Yes! Mission Control AI is built specifically for small businesses, entrepreneurs, and community groups. Whether you run a shop, a stokvel, or a freelance business — we've got you covered.",
+    a: "Yes! Warima is built specifically for small businesses, entrepreneurs, and community groups. Whether you run a shop, a stokvel, or a freelance business — we've got you covered.",
   },
   {
     q: "How does the multi-agent system work?",

@@ -5,7 +5,7 @@ const testimonials = [
   {
     name: "Thandi M.",
     role: "Stokvel Coordinator, Johannesburg",
-    quote: "Mission Control AI changed how we manage our stokvel. We track savings, plan investments, and keep everyone informed — all through WhatsApp.",
+    quote: "Warima changed how we manage our stokvel. We track savings, plan investments, and keep everyone informed — all through WhatsApp.",
   },
   {
     name: "Kwame A.",
