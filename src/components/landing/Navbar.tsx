@@ -44,6 +44,12 @@ const Navbar = () => {
           <a href="#features" onClick={() => setOpen(false)} className="block text-sm text-muted-foreground">Features</a>
           <a href="#how-it-works" onClick={() => setOpen(false)} className="block text-sm text-muted-foreground">How it Works</a>
           <a href="#faq" onClick={() => setOpen(false)} className="block text-sm text-muted-foreground">FAQ</a>
+          <Button variant="hero" size="sm" className="w-full" asChild>
+            <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="w-4 h-4" />
+              Start on WhatsApp
+            </a>
+          </Button>
           <div className="pt-2">
             <ConnectButton
               chainStatus="icon"
