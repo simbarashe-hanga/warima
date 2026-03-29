@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, MessageCircle } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import warimaLogo from "@/assets/warima-logo.png";
+
+const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
@@ -19,6 +21,12 @@ const Navbar = () => {
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
           <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How it Works</a>
           <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
+          <Button variant="hero" size="sm" asChild>
+            <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="w-4 h-4" />
+              Start on WhatsApp
+            </a>
+          </Button>
           <ConnectButton
             chainStatus="icon"
             showBalance={false}
@@ -36,6 +44,12 @@ const Navbar = () => {
           <a href="#features" onClick={() => setOpen(false)} className="block text-sm text-muted-foreground">Features</a>
           <a href="#how-it-works" onClick={() => setOpen(false)} className="block text-sm text-muted-foreground">How it Works</a>
           <a href="#faq" onClick={() => setOpen(false)} className="block text-sm text-muted-foreground">FAQ</a>
+          <Button variant="hero" size="sm" className="w-full" asChild>
+            <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="w-4 h-4" />
+              Start on WhatsApp
+            </a>
+          </Button>
           <div className="pt-2">
             <ConnectButton
               chainStatus="icon"

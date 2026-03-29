@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Play, Wallet } from "lucide-react";
+import { MessageCircle, Wallet } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import heroPhone from "@/assets/hero-phone.png";
+
+const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const HeroSection = () => {
   return (
@@ -37,16 +39,14 @@ const HeroSection = () => {
                     onClick={openConnectModal}
                   >
                     <Wallet className="w-5 h-5" />
-                    {account
-                      ? account.displayName
-                      : "Connect Wallet"}
+                    {account ? account.displayName : "Connect Wallet"}
                   </Button>
                 )}
               </ConnectButton.Custom>
               <Button variant="hero-outline" size="xl" asChild>
-                <a href="#demo">
-                  <Play className="w-5 h-5" />
-                  See Demo
+                <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="w-5 h-5" />
+                  Start on WhatsApp
                 </a>
               </Button>
             </div>

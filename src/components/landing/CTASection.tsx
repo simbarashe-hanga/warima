@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Wallet, ArrowRight } from "lucide-react";
+import { Wallet, MessageCircle } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+
+const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const CTASection = () => {
   return (
@@ -35,9 +37,9 @@ const CTASection = () => {
               )}
             </ConnectButton.Custom>
             <Button size="xl" className="bg-transparent border-2 border-off-white/30 text-off-white hover:bg-off-white/10 transition-all" asChild>
-              <a href="#demo">
-                Book a Demo
-                <ArrowRight className="w-5 h-5" />
+              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
+                <MessageCircle className="w-5 h-5" />
+                Start on WhatsApp
               </a>
             </Button>
           </div>
