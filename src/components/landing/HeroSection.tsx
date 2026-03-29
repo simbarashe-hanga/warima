@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Play, Wallet } from "lucide-react";
+import { MessageCircle, Wallet } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import heroPhone from "@/assets/hero-phone.png";
+
+const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const HeroSection = () => {
   return (
