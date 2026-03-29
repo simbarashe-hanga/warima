@@ -39,16 +39,14 @@ const HeroSection = () => {
                     onClick={openConnectModal}
                   >
                     <Wallet className="w-5 h-5" />
-                    {account
-                      ? account.displayName
-                      : "Connect Wallet"}
+                    {account ? account.displayName : "Connect Wallet"}
                   </Button>
                 )}
               </ConnectButton.Custom>
               <Button variant="hero-outline" size="xl" asChild>
-                <a href="#demo">
-                  <Play className="w-5 h-5" />
-                  See Demo
+                <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="w-5 h-5" />
+                  Start on WhatsApp
                 </a>
               </Button>
             </div>
