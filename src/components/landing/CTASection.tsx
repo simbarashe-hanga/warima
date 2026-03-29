@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Wallet, ArrowRight } from "lucide-react";
+import { Wallet, MessageCircle } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+
+const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const CTASection = () => {
   return (
