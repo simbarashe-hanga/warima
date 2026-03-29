@@ -30,15 +30,15 @@ const HeroSection = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 items-start">
               <ConnectButton.Custom>
-                {({ openConnectModal, connected, account, chain }) => (
+                {({ openConnectModal, account }) => (
                   <Button
                     variant="hero"
                     size="xl"
                     onClick={openConnectModal}
                   >
                     <Wallet className="w-5 h-5" />
-                    {connected && account
-                      ? `${account.displayName}`
+                    {account
+                      ? account.displayName
                       : "Connect Wallet"}
                   </Button>
                 )}
