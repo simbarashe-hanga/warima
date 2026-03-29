@@ -1,9 +1,8 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Play } from "lucide-react";
+import { Play, Wallet } from "lucide-react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import heroPhone from "@/assets/hero-phone.png";
-
-const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
 
 const HeroSection = () => {
   return (
@@ -29,13 +28,21 @@ const HeroSection = () => {
               Warima gives small businesses and communities expert-level guidance through the app they already use. No downloads. No complexity. Just results.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="hero" size="xl" asChild>
-                <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
-                  <MessageCircle className="w-5 h-5" />
-                  Start on WhatsApp
-                </a>
-              </Button>
+            <div className="flex flex-col sm:flex-row gap-4 items-start">
+              <ConnectButton.Custom>
+                {({ openConnectModal, account }) => (
+                  <Button
+                    variant="hero"
+                    size="xl"
+                    onClick={openConnectModal}
+                  >
+                    <Wallet className="w-5 h-5" />
+                    {account
+                      ? account.displayName
+                      : "Connect Wallet"}
+                  </Button>
+                )}
+              </ConnectButton.Custom>
               <Button variant="hero-outline" size="xl" asChild>
                 <a href="#demo">
                   <Play className="w-5 h-5" />

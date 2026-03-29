@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { MessageCircle } from "lucide-react";
+import { Wallet } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const WHATSAPP_LINK = "https://wa.me/1234567890?text=Hi%20Warima";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 const StickyCTA = () => {
   const [visible, setVisible] = useState(false);
@@ -24,12 +23,19 @@ const StickyCTA = () => {
           transition={{ duration: 0.3 }}
           className="fixed bottom-6 right-6 z-50 md:hidden"
         >
-          <Button variant="hero" size="lg" className="rounded-full shadow-2xl" asChild>
-            <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
-              <MessageCircle className="w-5 h-5" />
-              WhatsApp
-            </a>
-          </Button>
+          <ConnectButton.Custom>
+            {({ openConnectModal, account }) => (
+              <Button
+                variant="hero"
+                size="lg"
+                className="rounded-full shadow-2xl"
+                onClick={openConnectModal}
+              >
+                <Wallet className="w-5 h-5" />
+                {account ? account.displayName : "Connect"}
+              </Button>
+            )}
+          </ConnectButton.Custom>
         </motion.div>
       )}
     </AnimatePresence>
