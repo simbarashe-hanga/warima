@@ -22,7 +22,7 @@ const HeroSection = () => {
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight text-foreground mb-6">
-              Your AI team, Transforming Stokvels — on WhatsApp
+              Your AI finance, marketing & support team — on WhatsApp
             </h1>
 
             <p className="text-lg text-muted-foreground font-body leading-relaxed mb-8 max-w-md">
