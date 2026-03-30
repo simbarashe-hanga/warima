@@ -61,7 +61,6 @@ const FeaturesSection = () => {
               transition={{ duration: 0.5, delay: i * 0.15 }}
               className="bg-background rounded-2xl border border-border p-8"
             >
-              <div className="text-3xl mb-4">{pillar.emoji}</div>
               <h3 className="text-2xl mb-6 text-foreground">{pillar.title}</h3>
               <div className="space-y-4">
                 {pillar.features.map((f) => (
