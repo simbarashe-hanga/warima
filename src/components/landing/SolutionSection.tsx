@@ -5,17 +5,17 @@ const solutions = [
   {
     icon: MessageSquare,
     title: "Lives in WhatsApp",
-    description: "No new apps to download. Chat with your AI team in the app you already use every day.",
+    description: "No new apps to download. Manage your stokvel, track savings, and get guidance in the app your community already uses.",
   },
   {
     icon: Brain,
-    title: "Multi-agent intelligence",
-    description: "Specialized AI agents for finance, marketing, and support — all working together seamlessly.",
+    title: "AI-powered coordination",
+    description: "Automated contribution tracking, payout scheduling, and smart reminders keep your group running smoothly.",
   },
   {
     icon: UserCheck,
-    title: "Remembers & personalizes",
-    description: "Smart memory means better answers over time. It learns your business and adapts to your needs.",
+    title: "Learns your community",
+    description: "Warima adapts to your group's goals, saving patterns, and preferences — delivering smarter guidance over time.",
   },
 ];
 
