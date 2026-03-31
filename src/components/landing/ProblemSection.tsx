@@ -4,18 +4,18 @@ import { TrendingDown, Megaphone, Clock } from "lucide-react";
 const problems = [
   {
     icon: TrendingDown,
-    title: "Managing finances is confusing",
-    description: "Stokvels, savings, and investments feel overwhelming without expert guidance — but hiring one costs too much.",
+    title: "Stokvel management is messy",
+    description: "Tracking contributions, payouts, and member balances on paper or spreadsheets leads to confusion, disputes, and lost trust.",
   },
   {
     icon: Megaphone,
-    title: "Marketing is expensive & complex",
-    description: "Creating campaigns, content, and a brand presence takes time and money most small businesses don't have.",
+    title: "Financial guidance is out of reach",
+    description: "Communities want to save and invest together, but affordable, culturally relevant financial advice is hard to find.",
   },
   {
     icon: Clock,
-    title: "Customer support is draining",
-    description: "Answering the same questions 24/7 pulls you away from growing your business.",
+    title: "Coordination takes too much time",
+    description: "Chasing members for payments, scheduling meetings, and keeping everyone aligned eats into the time you could spend growing.",
   },
 ];
 
@@ -32,7 +32,7 @@ const ProblemSection = () => {
         >
           <p className="text-sm font-body font-semibold tracking-widest uppercase text-muted-foreground mb-3">The Problem</p>
           <h2 className="text-3xl md:text-4xl tracking-tight text-foreground">
-            Growing a business shouldn't be this hard
+            Saving together shouldn't be this hard
           </h2>
         </motion.div>
 

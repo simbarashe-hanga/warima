@@ -3,32 +3,29 @@ import { PiggyBank, Users, TrendingUp, Lightbulb, FileText, Target, Zap, Headpho
 
 const pillars = [
   {
-    emoji: "💰",
-    title: "Finance Assistant",
+    title: "Savings & Stokvel Manager",
     color: "bg-warima-green/15",
     features: [
-      { icon: PiggyBank, label: "Savings planning" },
-      { icon: Users, label: "Stokvel coordination" },
-      { icon: TrendingUp, label: "Investment guidance" },
+      { icon: PiggyBank, label: "Contribution tracking" },
+      { icon: Users, label: "Member management" },
+      { icon: TrendingUp, label: "Payout scheduling" },
     ],
   },
   {
-    emoji: "📢",
-    title: "Marketing Agent",
+    title: "Financial Guidance",
     color: "bg-gold-accent/15",
     features: [
-      { icon: Lightbulb, label: "Campaign ideas" },
-      { icon: FileText, label: "Content generation" },
-      { icon: Target, label: "Brand positioning" },
+      { icon: Lightbulb, label: "Investment tips" },
+      { icon: FileText, label: "Budgeting advice" },
+      { icon: Target, label: "Savings goals" },
     ],
   },
   {
-    emoji: "🛠️",
-    title: "Support Automation",
+    title: "Community Coordination",
     color: "bg-muted",
     features: [
-      { icon: Zap, label: "Instant replies" },
-      { icon: HeadphonesIcon, label: "Customer handling" },
+      { icon: Zap, label: "Smart reminders" },
+      { icon: HeadphonesIcon, label: "Group Q&A" },
       { icon: Clock, label: "24/7 availability" },
     ],
   },
@@ -47,7 +44,7 @@ const FeaturesSection = () => {
         >
           <p className="text-sm font-body font-semibold tracking-widest uppercase text-muted-foreground mb-3">Features</p>
           <h2 className="text-3xl md:text-4xl tracking-tight text-foreground">
-            Three agents. One mission.
+            Everything your community needs to thrive
           </h2>
         </motion.div>
 
