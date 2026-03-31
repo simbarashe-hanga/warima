@@ -22,11 +22,11 @@ const HeroSection = () => {
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight text-foreground mb-6">
-              Your AI finance, marketing & support team — on WhatsApp
+              From stokvels to smart money — on WhatsApp
             </h1>
 
             <p className="text-lg text-muted-foreground font-body leading-relaxed mb-8 max-w-md">
-              Warima gives small businesses and communities expert-level guidance through the app they already use. No downloads. No complexity. Just results.
+              Warima helps communities save, coordinate, and grow wealth together with AI-powered guidance — all inside the app they already use. No downloads. No complexity. Just progress.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
