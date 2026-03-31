@@ -32,7 +32,7 @@ const ProblemSection = () => {
         >
           <p className="text-sm font-body font-semibold tracking-widest uppercase text-muted-foreground mb-3">The Problem</p>
           <h2 className="text-3xl md:text-4xl tracking-tight text-foreground">
-            Growing a business shouldn't be this hard
+            Saving together shouldn't be this hard
           </h2>
         </motion.div>
 

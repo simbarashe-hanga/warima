@@ -22,7 +22,7 @@ const HeroSection = () => {
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight text-foreground mb-6">
-              From stokvels to smart money — on WhatsApp
+              From stokvels to smart money on WhatsApp
             </h1>
 
             <p className="text-lg text-muted-foreground font-body leading-relaxed mb-8 max-w-md">

@@ -32,7 +32,7 @@ const SolutionSection = () => {
         >
           <p className="text-sm font-body font-semibold tracking-widest uppercase text-muted-foreground mb-3">The Solution</p>
           <h2 className="text-3xl md:text-4xl tracking-tight text-foreground max-w-2xl mx-auto">
-            One AI platform. Three expert agents. Zero friction.
+            One WhatsApp chat. Smart savings. Zero friction.
           </h2>
         </motion.div>
 

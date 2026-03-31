@@ -44,7 +44,7 @@ const FeaturesSection = () => {
         >
           <p className="text-sm font-body font-semibold tracking-widest uppercase text-muted-foreground mb-3">Features</p>
           <h2 className="text-3xl md:text-4xl tracking-tight text-foreground">
-            Three agents. One mission.
+            Everything your community needs to thrive
           </h2>
         </motion.div>
 
