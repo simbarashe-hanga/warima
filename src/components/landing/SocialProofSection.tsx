@@ -1,23 +1,4 @@
 import { motion } from "framer-motion";
-import { Star } from "lucide-react";
-
-const testimonials = [
-  {
-    name: "Thandi M.",
-    role: "Stokvel Coordinator, Johannesburg",
-    quote: "Warima changed how we manage our stokvel. We track savings, plan investments, and keep everyone informed — all through WhatsApp.",
-  },
-  {
-    name: "Kwame A.",
-    role: "Small Business Owner, Accra",
-    quote: "I used to spend hours on social media content. Now the marketing agent gives me campaign ideas and captions in seconds.",
-  },
-  {
-    name: "Naledi P.",
-    role: "Online Shop Owner, Cape Town",
-    quote: "My customers get instant replies 24/7. I finally have time to focus on growing my business instead of answering the same questions.",
-  },
-];
 
 const metrics = [
   { value: "10+", label: "Hours saved per week" },
