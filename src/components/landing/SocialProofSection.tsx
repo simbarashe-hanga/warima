@@ -48,6 +48,19 @@ const SocialProofSection = () => {
           </h2>
         </motion.div>
 
+        {/* Recognition */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mb-16 p-6 md:p-8 rounded-2xl bg-background border border-border text-center"
+        >
+          <p className="text-sm font-body font-semibold tracking-widest uppercase text-muted-foreground mb-2">Recognition</p>
+          <h3 className="text-2xl md:text-3xl font-display text-foreground mb-2">{recognition.title}</h3>
+          <p className="text-muted-foreground font-body max-w-lg mx-auto">{recognition.description}</p>
+        </motion.div>
+
         {/* Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
           {metrics.map((m, i) => (
