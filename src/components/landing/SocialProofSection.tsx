@@ -26,6 +26,11 @@ const metrics = [
   { value: "3-in-1", label: "AI agents working for you" },
 ];
 
+const recognition = {
+  title: "\"On My Way\" Award Winner",
+  description: "ALX Future Founder SA — sponsored by Yoma, SAP, FNB, UN Generation Unlimited & GoodWall.",
+};
+
 const SocialProofSection = () => {
   return (
     <section className="py-20 md:py-28 bg-card">

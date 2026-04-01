@@ -12,7 +12,7 @@ const steps = [
     icon: Brain,
     number: "02",
     title: "AI understands your intent",
-    description: "Our smart routing detects whether you need finance, marketing, or support help.",
+    description: "Our smart routing detects whether you need finance, marketing, or support help — backed by a trusted ledger with immutable records managed by AI, so nothing gets lost.",
   },
   {
     icon: Sparkles,
