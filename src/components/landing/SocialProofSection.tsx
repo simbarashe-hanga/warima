@@ -59,6 +59,7 @@ const SocialProofSection = () => {
           ))}
         </div>
 
+
         {/* Testimonials */}
         <div className="grid md:grid-cols-3 gap-8">
           {testimonials.map((t, i) => (
