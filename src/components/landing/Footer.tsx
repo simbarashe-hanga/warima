@@ -1,8 +1,4 @@
 import warimaLogo from "@/assets/warima-logo.png";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "lucide-react";
-
-const CALENDLY_LINK = "https://calendly.com/simba-hanga/30min";
 
 const Footer = () => {
   return (
@@ -12,14 +8,6 @@ const Footer = () => {
           <img src={warimaLogo} alt="Warima" className="w-7 h-7" />
           <span className="font-display text-lg text-foreground">Warima</span>
         </a>
-        
-        <Button variant="outline" size="sm" className="gap-2" asChild>
-          <a href={CALENDLY_LINK} target="_blank" rel="noopener noreferrer">
-            <Calendar className="w-4 h-4" />
-            Book a Demo
-          </a>
-        </Button>
-        
         <p className="text-sm text-muted-foreground font-body">
           © {new Date().getFullYear()} Warima. All rights reserved.
         </p>
