@@ -30,7 +30,7 @@ const CTASection = () => {
               </a>
             </Button>
             <Button size="xl" className="bg-transparent border-2 border-off-white/30 text-off-white hover:bg-off-white/10 transition-all" asChild>
-              <a href="https://wa.me/27672489700?text=Hi%20Warima%2C%20I%27d%20like%20to%20book%20a%20demo" target="_blank" rel="noopener noreferrer">
+              <a href="https://calendly.com/simba-hanga/30min" target="_blank" rel="noopener noreferrer">
                 Book a Demo
                 <ArrowRight className="w-5 h-5" />
               </a>
