@@ -37,9 +37,9 @@ const HeroSection = () => {
                 </a>
               </Button>
               <Button variant="hero-outline" size="xl" asChild>
-                <a href="https://wa.me/27672489700?text=Hi%20Warima%2C%20I%27d%20like%20to%20book%20a%20demo" target="_blank" rel="noopener noreferrer">
+                <a href="https://calendly.com/simba-hanga/30min" target="_blank" rel="noopener noreferrer">
                   <Play className="w-5 h-5" />
-                  See Demo
+                  Book a Demo
                 </a>
               </Button>
             </div>
