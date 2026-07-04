@@ -1,24 +1,120 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# ======================================================
+# Operating System
+# ======================================================
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
+
+# ======================================================
+# Git
+# ======================================================
+*.orig
+
+# ======================================================
+# Python
+# ======================================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+myenv/
+backend/myenv/
+
+# ======================================================
+# Environment Variables (DO NOT COMMIT)
+# ======================================================
+.env
+.env.*
+backend/.env
+frontend/.env
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# ======================================================
+# Database
+# ======================================================
+*.db
+*.sqlite
+*.sqlite3
+backend/warima.db
+
+# ======================================================
+# Secrets / Keys
+# ======================================================
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ======================================================
+# Node / React / Vite
+# ======================================================
+node_modules/
+frontend/node_modules/
+
+dist/
+frontend/dist/
+
+coverage/
+
+# npm
+npm-debug.log*
+package-lock.json
+
+# bun
+bun.lock
+bun.lockb
+
+# pnpm
+pnpm-lock.yaml
+
+# yarn
+yarn.lock
+
+# ======================================================
+# IDEs
+# ======================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ======================================================
+# Docker
+# ======================================================
+.dockerignore
+docker-compose.override.yml
+
+# ======================================================
+# Logs
+# ======================================================
+*.log
+logs/
+
+# ======================================================
+# Uploads / Cache
+# ======================================================
+cache/
+tmp/
+temp/
+uploads/
+media/
+
+# ======================================================
+# Misc
+# ======================================================
+*.bak
+*.tmp
+*.temp
