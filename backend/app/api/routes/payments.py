@@ -1,9 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+import os
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import PlainTextResponse
+from sqlalchemy.orm import Session
 from app.db.session import get_db
 
 router = APIRouter()
+
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+
+
+@router.get("", response_class=PlainTextResponse)
+async def verify_payments(
+    hub_mode: str = Query(alias="hub.mode"),
+    hub_verify_token: str = Query(alias="hub.verify_token"),
+    hub_challenge: str = Query(alias="hub.challenge"),
+):
+    if (
+        hub_mode == "subscribe"
+        and hub_verify_token == VERIFY_TOKEN
+    ):
+        return PlainTextResponse(hub_challenge)
+
+    raise HTTPException(status_code=403, detail="Verification failed")
 
 
 @router.get("/health")
