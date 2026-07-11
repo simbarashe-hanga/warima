@@ -14,7 +14,11 @@ router = APIRouter()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 
 
+<<<<<<< HEAD
 @router.get("", response_class=PlainTextResponse)
+=======
+@route.get("")
+>>>>>>> 549368cf5c70a5c56d1b9e5fab7f0289458a2aab
 async def verify_webhook(
     hub_mode: str = Query(alias="hub.mode"),
     hub_verify_token: str = Query(alias="hub.verify_token"),
