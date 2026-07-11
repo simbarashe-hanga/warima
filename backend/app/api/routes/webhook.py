@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -7,6 +10,31 @@ from app.services.queue_service import enqueue_event
 from app.utils.extract_message import extract_message
 
 router = APIRouter()
+
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+
+
+@route.get("")
+async def verify_webhook(
+    hub_mode: str = Query(alias="hub.mode"),
+    hub_verify_token: str = Query(alias="hub.verify_token"),
+    hub_challenge: str = Query(alias="hub.challenge"),
+):
+    print(
+        "VERIFY:",
+        hub_mode,
+        hub_verify_token,
+        VERIFY_TOKEN,
+        hub_challenge,
+    )
+
+    if (
+        hub_mode == "subscribe"
+        and hub_verify_token == VERIFY_TOKEN
+    ):
+        return PlainTextResponse(hub_challenge)
+
+    raise HTTPException(status_code=403, detail="Verification failed")
 
 
 @router.post("")
