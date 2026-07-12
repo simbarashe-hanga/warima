@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { MessageCircle, Play } from "lucide-react";
 import heroPhone from "@/assets/hero-phone.png";
 
-const WHATSAPP_LINK = "https://wa.me/27698913277?text=Hi%20Warima";
+const WHATSAPP_LINK = "https://wa.me/15556317694?text=Hi%20Warima";
 
 const HeroSection = () => {
   return (
