@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, ArrowRight } from "lucide-react";
 
-const WHATSAPP_LINK = "https://wa.me/27698913277?text=Hi%20Warima";
+const WHATSAPP_LINK = "https://wa.me/15556317694?text=Hi%20Warima";
 
 const CTASection = () => {
   return (
