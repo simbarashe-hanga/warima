@@ -37,9 +37,6 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.6.3
 uvicorn==0.46.0
-<<<<<<< HEAD
 google-genai==2.11.0
 python-dotenv==1.2.2
-=======
 websockets==16.1
->>>>>>> 29141a6e3b617a74d7b2219e9fa6b73450032aa2
