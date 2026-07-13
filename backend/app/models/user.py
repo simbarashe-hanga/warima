@@ -6,8 +6,11 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True)
-    user_id = Column(String)
-    user_name = Column(String)
+    phone_number = Column(string)
+    first_name = Column(string)
+    last_name = Column(string)
+    email = Column(string)
+    pin_hash = Column(string)
     status = Column(String)
-    balance = Column(Integer)
-    message_id = Column(String)
+    created_at = Column(String)
+    updated_at = Column(string
