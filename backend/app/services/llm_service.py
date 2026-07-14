@@ -1,10 +1,19 @@
 from dotenv import load_dotenv
-from google import genai
+from huggingface_hub import AsyncInferenceClient
 import os
+
 
 load_dotenv()
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+client = AsyncInferenceClient(
+    api_key=os.getenv("HF_TOKEN"),
+)
+
+MODEL = os.getenv(
+    "HF_MODEL",
+    "meta-llama/Llama-3.3-70B-Instruct:together",
+)
 
 SYSTEM_PROMPT = """
 You are Warima.
@@ -27,53 +36,40 @@ Never invent:
 - contributions
 - withdrawals
 
-Keep replies under 80 words
+Keep replies under 80 words.
 
 Use simple, friendly conversational language.
 """
 
-
 async def chat(
     user_message: str,
-    history: list | None = None
+    history: list | None = None,
 ):
-    """
-    history should look like:
-
-    [
-        {"role": "user", "content": "..."},
-        {"role": "assistant", "content": "..."},
-    ]
-    """
-
     history = history or []
 
-    # Convert history into Gemini chat history
-    gemini_history = []
-
-    for message in history:
-        role = message["role"]
-
-        # Gemini uses "model" instead of "assistant"
-        if role == "assistant":
-            role = "model"
-
-        gemini_history.append(
-            {
-                "role": role,
-                "parts": [{"text": message["content"]}],
-            }
+    try:
+        completion = await client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
+                *history,
+                {
+                    "role": "user",
+                    "content": user_message,
+                },
+            ],
+            max_tokens=200,
+            temperature=0.7,
         )
 
-    chat = client.chats.create(
-        model="gemini-2.5-flash",
-        history=gemini_history,
-        config={
-            "system_instruction": SYSTEM_PROMPT,
-            "temperature": 0.6,
-        },
-    )
+        return completion.choices[0].message.content.strip()
 
-    response = chat.send_message(user_message)
-
-    return response.text
+    except Exception as e:
+        print(f"LLM Error: {e}")
+        return (
+            "I'm sorry, I'm having trouble processing your request at the moment. "
+            "Please try again shortly."
+        )
