@@ -8,5 +8,5 @@ class UserSession(Base):
     user_id = Column(String, primary_key=True)
     state = Column(String)
     context = Column(JSON)
-    last_seen
-    expires_at
+    last_seen = Column(String)
+    expires_at = Column(String)
