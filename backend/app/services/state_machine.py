@@ -1,7 +1,7 @@
 from app.services.messaging_service import send_message
 from app.intent import detect_intent
 from app.executor import handle_intent
-from app.models.session import UserSession
+from app.models.user_session import UserSession
 from app.services.transaction_service import create_or_get_transaction
 
 

@@ -1,62 +1,67 @@
 from dotenv import load_dotenv
-from app.services.llm_service import chat
-
 import asyncio
 from app.db.session import SessionLocal
+from app.services.user_service import UserService
+from app.services.llm_service import chat
+
 
 from app.services.queue_service import (
     get_and_mark_processing,
     mark_done,
-    mark_failed
+    mark_failed,
 )
 
 from app.services.conversation_service import (
     save_message,
-    get_recent_messages
+    get_recent_messages,
 )
 
 from app.services.messaging_service import send_message
 from app.engine.intent import detect_intent
 from app.engine.executor import handle_intent
-from app.models.session import UserSession
+#from app.models.user_session import UserSession
 
 load_dotenv()
 
 async def process_message(db, event):
     message = event.payload
 
-    user_id = message["user_id"]
+    # WhatsApp sender
+    wa_id = message["user_id"]
     text = message.get("text", "").lower()
 
     print("EVENT:", message)
-    print("USER:", user_id)
+    print("USER:", wa_id)
     print("TEXT:", text)
 
     # Load session or create session
-    session = db.query(UserSession).filter_by(user_id=user_id).first()
+    user_service = UserService(db)
 
-    if not session:
-        session = UserSession(user_id=user_id, context={})
-        db.add(session)
-        db.commit()
+    auth = user_service.authenticate_whatsapp(wa_id)
+
+    user = auth.user
+    identity = auth.identity
+    session = auth.session
+
+    print("USER ID:", user.id)
+    print("NEW USER:", auth.is_new)
 
     context = session.context or {}
 
-    context_text = f"""
-    Current user state:
-
-    {context}
-    """
-
     save_message(
         db,
-        user_id,
+        wa_id,
         "user",
-        text
+        text,
     )
 
+
     # Intent detection
-    intent_data = detect_intent(text, context)
+    intent_data = detect_intent(
+        text,
+        context,
+    )
+
     print("INTENT:", intent_data)
 
     if intent_data["intent"] == "unknown":
@@ -66,13 +71,13 @@ async def process_message(db, event):
         history = get_recent_messages(
             db,
             user_id,
-            limit=10
+            limit=10,
         )
 
         try:
             response = await chat(
                 user_message=text,
-                history=history
+                history=history,
             )
 
         except Exception as e:
@@ -92,15 +97,15 @@ async def process_message(db, event):
         response, new_context, _ = handle_intent(
             intent_data,
             context,
-            user_id,
-            db
+            wa_id,
+            db,
         )
 
     save_message(
         db,
-        user_id,
+        wa_id,
         "assistant",
-        response
+        response,
     )
 
 
@@ -111,13 +116,17 @@ async def process_message(db, event):
     db.commit()
 
     # Send reply
-    await send_message(user_id, response)
+    await send_message(
+        wa_id,
+        response,
+    )
 
 
 async def worker_loop():
     print("Worker started...")
 
     while True:
+        db = None
         try:
             db = SessionLocal()
 
@@ -132,10 +141,12 @@ async def worker_loop():
                     print("Worker error:", e)
                     mark_failed(db, event, str(e))
 
-            db.close()
-
         except Exception as e:
             print("Database unavailable:", e)
+
+        finally:
+            if db:
+                db.close()
 
         await asyncio.sleep(1)
 
