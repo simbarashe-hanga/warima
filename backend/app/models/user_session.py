@@ -25,7 +25,7 @@ class UserSession(Base):
     )
 
     user_identity_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("user_identities.id"),
         nullable=False,
     )
