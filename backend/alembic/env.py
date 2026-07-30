@@ -39,11 +39,7 @@ if config.config_file_name is not None:
 # --------------------------------------------------
 from app.db.base import Base  # noqa: E402
 
-<<<<<<< HEAD
-import app.models
-=======
 import app.models #noqa: E402
->>>>>>> 1a6c0a94de92891beba17231090f5510c0c817a0
 
 target_metadata = Base.metadata
 
