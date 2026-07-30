@@ -24,6 +24,9 @@ config.set_main_option("script_location", os.path.join(BASE_DIR, "alembic"))
 
 # Load DB URL from environment (DO NOT hardcode)
 database_url = os.getenv("DATABASE_URL")
+print("=" * 60)
+print("DATABASE_URL:", repr(database_url))
+print("=" * 60)
 if database_url:
     config.set_main_option("sqlalchemy.url", database_url)
 
@@ -36,7 +39,11 @@ if config.config_file_name is not None:
 # --------------------------------------------------
 from app.db.base import Base  # noqa: E402
 
+<<<<<<< HEAD
+import app.models
+=======
 import app.models #noqa: E402
+>>>>>>> 1a6c0a94de92891beba17231090f5510c0c817a0
 
 target_metadata = Base.metadata
 
@@ -58,20 +65,32 @@ def run_migrations_offline():
 
 
 def run_migrations_online():
+    print("[1] Starting migrations")
+
+    configuration = config.get_section(config.config_ini_section)
+    print("[2] Configuration loaded")
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
+    print("[3] Engine created")
 
     with connectable.connect() as connection:
+        print("[4] Connected to database")
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            compare_type=True
         )
+        print("[5] Context configured")
 
         with context.begin_transaction():
+            print("[6] Running migrations")
             context.run_migrations()
+
+        print("[7] Done")
 
 
 if context.is_offline_mode():
