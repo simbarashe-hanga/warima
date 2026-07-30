@@ -21,13 +21,13 @@ class UserSession(Base):
     id = Column(
         UUID(as_uuid=True),
         primary_key=True,
-        default=uuid.uuid4
+        default=uuid.uuid4,
     )
 
     user_identity_id = Column(
-        UUID(as_uuid=True),
+        String,
         ForeignKey("user_identities.id"),
-        Nullable=False,
+        nullable=False,
     )
 
     state = Column(
