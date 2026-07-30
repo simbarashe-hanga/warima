@@ -34,7 +34,7 @@ class User(Base):
         nullable=True,
     )
 
-    pin_hash = Column(String. nullable=True)
+    pin_hash = Column(String, nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),
