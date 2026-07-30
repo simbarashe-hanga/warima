@@ -41,7 +41,7 @@ class UserIdentity(Base):
     )
 
     user_id = Column(
-        UUID(as_uuid=True),
+        String,
         ForeignKey("users.id"),
         nullable=False,
     )
