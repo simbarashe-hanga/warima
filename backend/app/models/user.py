@@ -11,9 +11,8 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(
-        UUID(as_uuid=True),
+        String,
         primary_key=True,
-        default=uuid.uuid4
     )
 
     first_name = Column(String, nullable=True)
@@ -31,12 +30,11 @@ class User(Base):
     language = Column(String, nullable=True)
 
     status = Column(
-        Enum(UserStatus),
-        nullable=False,
-        default=UserStatus.PENDING,
+        String,
+        nullable=True,
     )
 
-    pin_hash = Column(String)
+    pin_hash = Column(String. nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

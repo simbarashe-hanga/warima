@@ -19,46 +19,28 @@ from app.models.enums import SessionState
 class UserSession(Base):
     __tablename__ = "user_sessions"
 
-    id = Column(
-        UUID(as_uuid=True),
+    user_id = Column(
+        String,
         primary_key=True,
-        default=uuid.uuid4,
-    )
-
-    user_identity_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("user_identities.id"),
-        nullable=False,
     )
 
     state = Column(
-        Enum(SessionState),
-        nullable=False,
-        default=SessionState.START,
+        String,
+        nullable=True,
     )
 
     context = Column(
         JSON,
-        nullable=False,
+        nullable=True,
         default=dict,
     )
 
-    expires_at = Column(DateTime(timezone=True))
-
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
+    last_seen = Column(
+        String,
+        nullable=True,
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-
-    identity = relationship(
-        "UserIdentity",
-        back_populates="session",
+    expires_at = Column(
+        String,
+        nullable=True,
     )
