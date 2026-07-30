@@ -36,6 +36,8 @@ if config.config_file_name is not None:
 # --------------------------------------------------
 from app.db.base import Base  # noqa: E402
 
+import app.models #noqa: E402
+
 target_metadata = Base.metadata
 
 
