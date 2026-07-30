@@ -41,7 +41,7 @@ class UserIdentity(Base):
     )
 
     user_id = Column(
-        String,
+        UUID(as_uuid=True),
         ForeignKey("users.id"),
         nullable=False,
     )
@@ -75,7 +75,7 @@ class UserIdentity(Base):
 
     session = relationship(
         "UserSession",
-        back_populates="identity",
+        back_populates="user_identity",
         uselist=False,
         cascade="all, delete-orphan",
     )
