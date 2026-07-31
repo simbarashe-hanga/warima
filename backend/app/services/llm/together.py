@@ -24,7 +24,7 @@ async def chat(
         }
     ]
 
-    messages.extend(history
+    messages.extend(history)
 
 
     messages.append(
