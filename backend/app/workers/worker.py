@@ -70,7 +70,7 @@ async def process_message(db, event):
 
         history = get_recent_messages(
             db,
-            user_id,
+            wa_id,
             limit=10,
         )
 
@@ -97,7 +97,7 @@ async def process_message(db, event):
         response, new_context, _ = handle_intent(
             intent_data,
             context,
-            wa_id,
+            user.id,
             db,
         )
 
