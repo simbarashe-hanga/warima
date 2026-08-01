@@ -73,6 +73,13 @@ async def process_message(db, event):
             wa_id,
             limit=10,
         )
+        print("=" * 60)
+        print("HISTORY LENGTH:", len(history))
+
+        for i, msg in enumerate(history):
+            print(i, msg)
+
+        print("=" * 60)
 
         try:
             response = await chat(
