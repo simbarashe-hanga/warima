@@ -11,17 +11,30 @@ load_dotenv()
 async def chat(
     user_message: str,
     history: list | None = None,
+    system_prompt: str | None = None,
 ) -> str:
 
     provider = os.getenv("LLM_PROVIDER", "huggingface").lower().strip()
 
     if provider == "huggingface":
-        return await huggingface_chat(user_message, history)
+        return await huggingface_chat(
+            user_message,
+            history,
+            system_prompt=system_prompt,
+        )
 
     if provider == "gemini":
-        return await gemini_chat(user_message, history)
+        return await gemini_chat(
+            user_message,
+            history,
+            system_prompt=system_prompt,
+        )
 
     if provider == "openai":
-        return await openai_chat(user_message, history)
+        return await openai_chat(
+            user_message,
+            history,
+            system_prompt=system_prompt,
+        )
 
     raise ValueError(f"Unknown LLM_PROVIDER: {provider}")

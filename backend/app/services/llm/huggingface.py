@@ -15,6 +15,7 @@ client = AsyncInferenceClient(
 async def chat(
     user_message: str,
     history: list | None = None,
+    system_prompt: str | None = None,
 ) -> str:
 
     history = history or []
@@ -22,32 +23,26 @@ async def chat(
     messages = [
         {
             "role": "system",
-            "content": WARIMA_SYSTEM_PROMPT,
+            "content": system_prompt or WARIMA_SYSTEM_PROMPT,
         }
     ]
 
-    # Add conversation history
+    # Conversation history
     for message in history:
 
-        role = message["role"]
+        role = message.get("role", "assistant")
 
-        if role == "assistant":
+        if role not in ("system", "user", "assistant"):
             role = "assistant"
-
-        elif role == "user":
-            role = "user"
-
-        else:
-            continue
 
         messages.append(
             {
                 "role": role,
-                "content": message["content"],
+                "content": message.get("content", ""),
             }
         )
 
-    # Add latest user message
+    # Latest user message
     messages.append(
         {
             "role": "user",
@@ -55,14 +50,17 @@ async def chat(
         }
     )
 
-    print("=" * 60)
+    print("=" * 80)
     print("HF MODEL:", os.getenv("HF_MODEL"))
+    print("=" * 80)
+    print(messages[0]["content"])
+    print("=" * 80)
     print("MESSAGE COUNT:", len(messages))
 
     for i, m in enumerate(messages):
         print(f"{i}: {m['role']} -> {m['content']}")
 
-    print("=" * 60)
+    print("=" * 80)
 
     response = await client.chat_completion(
         model=os.getenv("HF_MODEL"),

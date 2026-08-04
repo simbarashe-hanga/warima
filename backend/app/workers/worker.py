@@ -2,6 +2,8 @@ from dotenv import load_dotenv
 import asyncio
 from app.db.session import SessionLocal
 from app.services.user_service import UserService
+
+from app.services.context_builder import ContextBuilder
 from app.services.llm_service import chat
 
 
@@ -19,20 +21,23 @@ from app.services.conversation_service import (
 from app.services.messaging_service import send_message
 from app.engine.intent import detect_intent
 from app.engine.executor import handle_intent
-#from app.models.user_session import UserSession
 
 load_dotenv()
+
 
 async def process_message(db, event):
     message = event.payload
 
     # WhatsApp sender
     wa_id = message["user_id"]
-    text = message.get("text", "").lower()
+    raw_text = message.get("text", "")
+
+    intent_text = raw_text.lower()
 
     print("EVENT:", message)
     print("USER:", wa_id)
-    print("TEXT:", text)
+    print("RAW TEXT:", raw_text)
+    print("INTENT TEXT:", intent_text)
 
     # Load session or create session
     user_service = UserService(db)
@@ -43,22 +48,45 @@ async def process_message(db, event):
     identity = auth.identity
     session = auth.session
 
+    print("=" * 60)
+    print("AUTHENTICATED MEMBER")
     print("USER ID:", user.id)
+    print("Identity:", identity.id)
+    print("Display Name:", user.display_name)
     print("NEW USER:", auth.is_new)
+    print("=" * 60)
+
+    #
+    # Build user context
+    #
+
+    system_prompt = await ContextBuilder.build_system_prompt(
+        user=user,
+        identity=identity,
+        session=session,
+    )
+
+    #
+    # Session context
+    #
 
     context = session.context or {}
+
+    #
+    # Save incoming message
+    #
 
     save_message(
         db,
         wa_id,
         "user",
-        text,
+        raw_text,
     )
 
 
     # Intent detection
     intent_data = detect_intent(
-        text,
+        intent_text,
         context,
     )
 
@@ -83,8 +111,9 @@ async def process_message(db, event):
 
         try:
             response = await chat(
-                user_message=text,
+                user_message=raw_text,
                 history=history,
+                system_prompt=system_prompt,
             )
 
         except Exception as e:
@@ -99,6 +128,10 @@ async def process_message(db, event):
 
         new_context = context
 
+    #
+    # Structured Intent
+    #
+
     else:
 
         response, new_context, _ = handle_intent(
@@ -108,6 +141,10 @@ async def process_message(db, event):
             db,
         )
 
+    #
+    # Save assistant reply
+    #
+
     save_message(
         db,
         wa_id,
@@ -115,10 +152,12 @@ async def process_message(db, event):
         response,
     )
 
-
     print("RESPONSE:", response)
 
-    # Update context
+    #
+    # Save session
+    #
+
     session.context = new_context or {}
     db.commit()
 

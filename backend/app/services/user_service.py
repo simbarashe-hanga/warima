@@ -59,7 +59,55 @@ class UserService:
                 identity.id,
             )
 
-            print("[4] Session loaded")
+            #
+            # Recover missing session
+            #
+
+            if session is None:
+                print("[4] Session missing. Creating.") 
+
+                session = UserSession(
+                    user_identity_id=identity.id,
+                    state=SessionState.Start,
+                    context={
+                        "authenticated": True,
+                        "new_user": False,
+                        "onboarding": False,
+                        "profile_completed": True,
+                    },
+                )
+
+                self.session_repo.create(session)
+                self.db.commit()
+
+            #
+            # Ensure default context exists
+            #
+
+            if session.context is None:
+                session.context = {}
+
+            session.context.setdefault(
+                "authenticated",
+                True,
+            )
+
+            session.context.setdefault(
+                "new_user",
+                False,
+            )
+
+            session.context.setdefault(
+                "onboarding",
+                False,
+            )
+
+            session.context.setdefault(
+                "profile_completed",
+                True,
+            )
+
+            self.db.commit()
 
             return AuthenticationResult(
                 user=identity.user,
@@ -67,6 +115,10 @@ class UserService:
                 session=session,
                 is_new=False,
             )
+
+        #
+        # First-time member
+        #
 
         print("[5] No identity found. Creating user...")
 
@@ -76,42 +128,31 @@ class UserService:
                 status=UserStatus.PENDING,
             )
 
-            print("[6] User object created")
-
             self.user_repo.create(user)
 
-            print("[7] User saved")
-
-            # Create WhatsApp Identity
             identity = UserIdentity(
                 user_id=user.id,
                 provider=IdentityProvider.WHATSAPP,
                 provider_identifier=wa_id,
             )
 
-            print("[8] Identity object created")
-
             self.identity_repo.create(identity)
 
-            print("[9] Identity saved")
-
-            # Create Session
             session = UserSession(
                 user_identity_id=identity.id,
                 state=SessionState.START,
+                context={
+                    "authenticated": True,
+                    "new_user": True,
+                    "onboarding": True,
+                    "profile_completed": False,
+                    "flow": "welcome",
+                },
             )
-
-            print("[10] Session object created")
 
             self.session_repo.create(session)
 
-            print("[11] Session saved")
-
-            print("[12] Committing transaction")
-
             self.db.commit()
-
-            print("[13] Commit complete")
 
             return AuthenticationResult(
                 user=user,
@@ -119,7 +160,7 @@ class UserService:
                 session=session,
                 is_new=True,
             )
-
+        
         except Exception as e:
             print("[Error]", e)
             self.db.rollback()
