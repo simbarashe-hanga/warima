@@ -55,3 +55,10 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+
+    member_accounts = relationship(
+        "MemberAccount",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+

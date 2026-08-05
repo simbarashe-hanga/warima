@@ -1,3 +1,5 @@
+# from dotenv import load_dotenv
+
 import os
 import sys
 from logging.config import fileConfig
@@ -10,6 +12,8 @@ from alembic import context
 # --------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_DIR = os.path.join(BASE_DIR, "app")
+
+# load_dotenv(os.path.join(os.path.dirname(BASE_DIR), ".env"))
 
 sys.path.append(BASE_DIR)
 sys.path.append(APP_DIR)
