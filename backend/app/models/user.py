@@ -31,6 +31,7 @@ class User(Base):
     language = Column(String, nullable=True)
 
     status = Column(
+        Enum(UserStatus),
         String,
         nullable=True,
     )
