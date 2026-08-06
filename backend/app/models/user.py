@@ -32,8 +32,8 @@ class User(Base):
 
     status = Column(
         Enum(UserStatus),
-        String,
-        nullable=True,
+        nullable=False,
+        default=UserStatus.PENDING,
     )
 
     pin_hash = Column(String, nullable=True)

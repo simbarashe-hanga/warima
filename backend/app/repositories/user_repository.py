@@ -16,3 +16,8 @@ class UserRepository(BaseRepository):
         self.db.add(user)
         self.db.flush()		#Generates UUID before commit
         return user
+
+    def save(self, user: User):
+        self.db.add(user)
+        self.db.flush()
+        return user

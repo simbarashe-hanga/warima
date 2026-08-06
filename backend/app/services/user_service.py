@@ -14,6 +14,8 @@ from app.repositories.user_session_repository import (
     UserSessionRepository,
 )
 
+from app.services.member_account_service import MemberAccountService
+
 from app.schemas.auth import AuthenticationResult
 
 
@@ -25,6 +27,7 @@ class UserService:
         self.user_repo = UserRepository(db)
         self.identity_repo = UserIdentityRepository(db)
         self.session_repo = UserSessionRepository(db)
+        self.member_account_service = MemberAccountService(db)
 
     def authenticate_whatsapp(
         self,
@@ -68,17 +71,12 @@ class UserService:
 
                 session = UserSession(
                     user_identity_id=identity.id,
-                    state=SessionState.Start,
-                    context={
-                        "authenticated": True,
-                        "new_user": False,
-                        "onboarding": False,
-                        "profile_completed": True,
-                    },
+                    state=SessionState.START,
                 )
 
+                SessionManager.initialize(session)
+
                 self.session_repo.create(session)
-                self.db.commit()
 
             #
             # Ensure default context exists
@@ -107,12 +105,23 @@ class UserService:
                 True,
             )
 
+            #
+            # Ensure financial account exists
+            #
+
+            member_account = (
+                self.member_account_service.ensure_member_account(
+                    identity.user,
+                )
+            )
+
             self.db.commit()
 
             return AuthenticationResult(
                 user=identity.user,
                 identity=identity,
                 session=session,
+                member_account=member_account,
                 is_new=False,
             )
 
@@ -152,12 +161,23 @@ class UserService:
 
             self.session_repo.create(session)
 
+            #
+            # Create default financial account
+            #
+
+            member_account = (
+                self.member_account_service.ensure_member_account(
+                    user,
+                )
+            )
+
             self.db.commit()
 
             return AuthenticationResult(
                 user=user,
                 identity=identity,
                 session=session,
+                member_account=member_account,
                 is_new=True,
             )
         

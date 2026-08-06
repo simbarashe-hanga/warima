@@ -22,6 +22,10 @@ from app.services.messaging_service import send_message
 from app.engine.intent import detect_intent
 from app.engine.executor import handle_intent
 
+from app.services.onboarding_service import OnboardingService
+from app.services.session_manager import SessionManager
+
+
 load_dotenv()
 
 
@@ -47,42 +51,93 @@ async def process_message(db, event):
     user = auth.user
     identity = auth.identity
     session = auth.session
+    member_account = auth.member_account
 
-    print("=" * 60)
+    print("=" * 80)
     print("AUTHENTICATED MEMBER")
-    print("USER ID:", user.id)
-    print("Identity:", identity.id)
-    print("Display Name:", user.display_name)
+    print("=" * 80)
+
+    print("USER")
+    print("  ID:", user.id)
+    print("  Display Name:", user.display_name)
+    print("  Status:", user.status)
+    
+    print()
+
+    print("IDENTITY")
+    print("  Identity:", identity.id)
+    print("  Provider:", identity.provider)
+    print("  Identifier:", identity.provider_identifier)
+
+    print()
+
+    print("SESSION")
+    print("  ID:", session.id)
+    print("  State:", session.state)
+    
+    print()
+
+
+    print("MEMBER ACCOUNT")
+    print("  ID:", member_account.id)
+    print("  Number:", member_account.account_number)
+    print("  Name:", member_account.display_name)
+    print("  Type:", member_account.account_type)
+    print("  Status:", member_account.status)
+
+    print()
+
     print("NEW USER:", auth.is_new)
-    print("=" * 60)
 
-    #
-    # Build user context
-    #
-
-    system_prompt = await ContextBuilder.build_system_prompt(
-        user=user,
-        identity=identity,
-        session=session,
-    )
+    print("=" * 80)
 
     #
     # Session context
     #
 
-    context = session.context or {}
+    SessionManager.initialize(session)
+    context = session.context
 
     #
-    # Save incoming message
+    # Save Incoming Message
     #
-
     save_message(
         db,
         wa_id,
         "user",
         raw_text,
     )
+    
+    #
+    # Onboarding
+    #
 
+    if not SessionManager.profile_completed(session):
+        onboarding = OnboardingService(db)
+
+        result = onboarding.process(
+            user=user,
+            session=session,
+            member_account=member_account,
+            message=raw_text,
+        )
+
+        if result.save_session:
+            db.commit()
+
+        save_message(
+            db,
+            wa_id,
+            "assistant",
+            result.message,
+        )
+
+        await send_message(
+            wa_id,
+            result.message,
+        )
+
+        return
 
     # Intent detection
     intent_data = detect_intent(
@@ -93,6 +148,12 @@ async def process_message(db, event):
     print("INTENT:", intent_data)
 
     if intent_data["intent"] == "unknown":
+        system_prompt = await ContextBuilder.build_system_prompt(
+            user=user,
+            identity=identity,
+            session=session,
+            member_account=member_account,
+        )
 
         print("ROUTING TO LLM")
 
@@ -158,7 +219,9 @@ async def process_message(db, event):
     # Save session
     #
 
-    session.context = new_context or {}
+    if new_context:
+        session.context.update(new_context)
+
     db.commit()
 
     # Send reply
