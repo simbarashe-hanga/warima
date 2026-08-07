@@ -2,7 +2,7 @@ from app.engine.onboarding_steps import OnboardingStep
 from app.engine import onboarding_messages as msg
 
 from app.schemas.onboarding import OnboardingResult
-from app.services.session_manager import SessionManager
+from app.services.identity.session_manager import SessionManager
 
 
 class OnboardingEngine:
@@ -10,7 +10,6 @@ class OnboardingEngine:
     @classmethod
     def handle(
         cls,
-        db,
         user,
         session,
         message: str,
@@ -22,22 +21,22 @@ class OnboardingEngine:
             return cls._welcome(session)
 
         elif step == OnboardingStep.FIRST_NAME:
-            return cls._first_name(db, user, session, message)
+            return cls._first_name(user, session, message)
 
         elif step == OnboardingStep.LAST_NAME:
-            return cls._last_name(db, user, session, message)
+            return cls._last_name(user, session, message)
 
         elif step == OnboardingStep.DISPLAY_NAME:
-            return cls._display_name(db, user, session, message)
+            return cls._display_name(user, session, message)
 
         elif step == OnboardingStep.LANGUAGE:
-            return cls._language(db, user, session, message)
+            return cls._language(user, session, message)
 
         elif step == OnboardingStep.EMAIL:
-            return cls._email(db, user, session, message)
+            return cls._email(user, session, message)
 
         elif step == OnboardingStep.CONFIRM:
-            return cls._confirm(db, user, session, message)
+            return cls._confirm(user, session, message)
 
         return OnboardingResult(
             message="Let's start again.",
@@ -51,6 +50,7 @@ class OnboardingEngine:
             session,
             OnboardingStep.FIRST_NAME,
         )
+        print(session.context)
 
         return OnboardingResult(
             message=msg.WELCOME + "\n\n" + msg.FIRST_NAME,
@@ -60,7 +60,6 @@ class OnboardingEngine:
 
     @staticmethod
     def _first_name(
-        db,
         user,
         session,
         message,
@@ -71,8 +70,6 @@ class OnboardingEngine:
             OnboardingStep.LAST_NAME,
         )
 
-        db.commit()
-
         return OnboardingResult(
             message=msg.LAST_NAME,
             completed=False,
@@ -81,7 +78,6 @@ class OnboardingEngine:
 
     @staticmethod
     def _last_name(
-        db,
         user,
         session,
         message,
@@ -92,8 +88,6 @@ class OnboardingEngine:
             OnboardingStep.DISPLAY_NAME,
         )
 
-        db.commit()
-
         return OnboardingResult(
             message=msg.DISPLAY_NAME,
             completed=False,
@@ -102,7 +96,6 @@ class OnboardingEngine:
 
     @staticmethod
     def _display_name(
-        db,
         user,
         session,
         message,
@@ -113,8 +106,6 @@ class OnboardingEngine:
             OnboardingStep.LANGUAGE,
         )
 
-        db.commit()
-
         return OnboardingResult(
             message=msg.LANGUAGE,
             completed=False,
@@ -123,7 +114,6 @@ class OnboardingEngine:
 
     @staticmethod
     def _language(
-            db,
             user,
             session,
             message,
@@ -134,8 +124,6 @@ class OnboardingEngine:
             OnboardingStep.EMAIL,
         )
 
-        db.commit()
-
         return OnboardingResult(
             message=msg.EMAIL,
             completed=False,
@@ -144,7 +132,6 @@ class OnboardingEngine:
 
     @staticmethod
     def _email(
-        db,
         user,
         session,
         message,
@@ -166,8 +153,6 @@ class OnboardingEngine:
             OnboardingStep.CONFIRM,
         )
 
-        db.commit()
-
         summary = (
             f"Please confirm your details:\n\n"
             f"First Name: {user.first_name}\n"
@@ -186,7 +171,6 @@ class OnboardingEngine:
 
     @staticmethod
     def _confirm(
-        db,
         user,
         session,
         message,
@@ -206,8 +190,6 @@ class OnboardingEngine:
             )
 
         SessionManager.complete_onboarding(session)
-
-        db.commit()
 
         return OnboardingResult(
             message=(

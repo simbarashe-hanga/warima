@@ -1,4 +1,4 @@
-def detect_intent(text: str, context: dict):
+def detect_intent(text: str, session):
     text = text.lower().strip()
 
     if text in ["hi", "hello", "hey"]:
