@@ -5,8 +5,8 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.services.idempotency_service import is_duplicate, save_message
-from app.services.queue_service import enqueue_event
+from app.services.messaging.idempotency_service import is_duplicate, save_message
+from app.services.messaging.queue_service import enqueue_event
 from app.utils.extract_message import extract_message
 
 router = APIRouter()

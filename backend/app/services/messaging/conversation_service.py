@@ -14,7 +14,8 @@ def save_message(
     )
 
     db.add(msg)
-    db.commit()
+    
+    return msg
 
 #Load recent history
 def get_recent_messages(

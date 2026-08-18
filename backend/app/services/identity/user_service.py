@@ -14,9 +14,12 @@ from app.repositories.user_session_repository import (
     UserSessionRepository,
 )
 
-from app.services.member_account_service import MemberAccountService
+from app.services.identity.member_account_service import MemberAccountService
 
 from app.schemas.auth import AuthenticationResult
+
+from app.services.identity.session_manager import SessionManager
+
 
 
 class UserService:
@@ -28,6 +31,12 @@ class UserService:
         self.identity_repo = UserIdentityRepository(db)
         self.session_repo = UserSessionRepository(db)
         self.member_account_service = MemberAccountService(db)
+
+    #############################################################################
+    #
+    # Authenticate WhatsApp Member
+    #
+    #############################################################################
 
     def authenticate_whatsapp(
         self,
@@ -56,6 +65,12 @@ class UserService:
 
         print("[2] Identity lookup finished")
 
+        ############################################################################
+        #
+        # Existing Member
+        #
+        ############################################################################
+
         if identity:
             print("[3] Existing identity found")
             session = self.session_repo.get_by_identity(
@@ -78,35 +93,11 @@ class UserService:
 
                 self.session_repo.create(session)
 
+            else:
+                SessionManager.initialize(session)
+
             #
             # Ensure default context exists
-            #
-
-            if session.context is None:
-                session.context = {}
-
-            session.context.setdefault(
-                "authenticated",
-                True,
-            )
-
-            session.context.setdefault(
-                "new_user",
-                False,
-            )
-
-            session.context.setdefault(
-                "onboarding",
-                False,
-            )
-
-            session.context.setdefault(
-                "profile_completed",
-                True,
-            )
-
-            #
-            # Ensure financial account exists
             #
 
             member_account = (
@@ -114,8 +105,6 @@ class UserService:
                     identity.user,
                 )
             )
-
-            self.db.commit()
 
             return AuthenticationResult(
                 user=identity.user,
@@ -125,63 +114,51 @@ class UserService:
                 is_new=False,
             )
 
+
         #
         # First-time member
         #
 
         print("[5] No identity found. Creating user...")
 
-        try:
-            # Create User
-            user = User(
-                status=UserStatus.PENDING,
+        # Create User
+        user = User(
+            status=UserStatus.PENDING,
+        )
+
+        self.user_repo.create(user)
+
+        identity = UserIdentity(
+            user_id=user.id,
+            provider=IdentityProvider.WHATSAPP,
+            provider_identifier=wa_id,
+        )
+
+        self.identity_repo.create(identity)
+
+        session = UserSession(
+            user_identity_id=identity.id,
+            state=SessionState.START,
+        )
+
+        SessionManager.initialize(session)
+
+        self.session_repo.create(session)
+
+        #
+        # Create default financial account
+        #
+
+        member_account = (
+            self.member_account_service.ensure_member_account(
+                user,
             )
+        )
 
-            self.user_repo.create(user)
-
-            identity = UserIdentity(
-                user_id=user.id,
-                provider=IdentityProvider.WHATSAPP,
-                provider_identifier=wa_id,
-            )
-
-            self.identity_repo.create(identity)
-
-            session = UserSession(
-                user_identity_id=identity.id,
-                state=SessionState.START,
-                context={
-                    "authenticated": True,
-                    "new_user": True,
-                    "onboarding": True,
-                    "profile_completed": False,
-                    "flow": "welcome",
-                },
-            )
-
-            self.session_repo.create(session)
-
-            #
-            # Create default financial account
-            #
-
-            member_account = (
-                self.member_account_service.ensure_member_account(
-                    user,
-                )
-            )
-
-            self.db.commit()
-
-            return AuthenticationResult(
-                user=user,
-                identity=identity,
-                session=session,
-                member_account=member_account,
-                is_new=True,
-            )
-        
-        except Exception as e:
-            print("[Error]", e)
-            self.db.rollback()
-            raise
+        return AuthenticationResult(
+            user=user,
+            identity=identity,
+            session=session,
+            member_account=member_account,
+            is_new=True
+        )

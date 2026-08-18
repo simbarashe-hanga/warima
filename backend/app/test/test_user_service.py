@@ -1,5 +1,5 @@
 from app.db.session import SessionLocal
-from app.services.user_service import UserService
+from app.services.identity.user_service import UserService
 
 
 def main():

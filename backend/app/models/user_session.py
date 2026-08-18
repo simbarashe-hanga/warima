@@ -2,6 +2,7 @@
 
 import uuid
 
+from sqlalchemy.ext.mutable import MutableDict
 
 from sqlalchemy import (
     Column,
@@ -38,9 +39,9 @@ class UserSession(Base):
     )
 
     context = Column(
-        JSON,
-        nullable=True,
+        MutableDict.as_mutable(JSON),
         default=dict,
+        nullable=False,
     )
 
     created_at = Column(
