@@ -71,12 +71,14 @@ async def process_message(db, event):
         # Save incoming message
         #################################################################
 
-        save_message(
+        user_message = save_message(
             db,
             wa_id,
             "user",
             raw_text,
         )
+
+        db.flush()
     
         ################################################################
         # Onboarding
@@ -137,6 +139,7 @@ async def process_message(db, event):
                     db,
                     wa_id,
                     limit=10,
+                    exclude_id=user_message.id,
                 )
 
                 response = await chat(

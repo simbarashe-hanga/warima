@@ -6,11 +6,10 @@ def create_or_get_transaction(db, user_id: str, amount: int):
         id=str(uuid.uuid4()),
         user_id=user_id,
         amount=amount,
-        status="PENDING"
+        status="PENDING",
     )
 
     db.add(txn)
-    db.commit()
-    db.refresh(txn)
+    db.flush()
 
     return txn

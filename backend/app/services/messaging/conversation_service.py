@@ -21,11 +21,21 @@ def save_message(
 def get_recent_messages(
     db,
     user_id,
-    limit=10
+    limit=10,
+    exclude_id=None,
 ):
-    messages = (
+    query = (
         db.query(ConversationMessage)
         .filter_by(user_id=user_id)
+    )
+
+    if exclude_id is not None:
+        query = query.filter(
+            ConversationMessage.id != exclude_id
+        )
+
+    messages = (
+        query
         .order_by(
             ConversationMessage.id.desc()
         )
@@ -38,7 +48,7 @@ def get_recent_messages(
     return [
         {
             "role":m.role,
-            "content":m.content
+            "content":m.content,
         }
         for m in messages
     ]
