@@ -1,0 +1,962 @@
+# backend/app/engine/flow_router.py
+
+from typing import Dict, Any
+
+from app.services.ai.agent_service import AgentService
+from app.services.identity.session_manager import SessionManager
+
+from app.engine.onboarding_engine import OnboardingEngine
+from app.engine.wallet_engine import WalletEngine
+from app.engine.stokvel_engine import StokvelEngine
+from app.engine.investment_engine import InvestmentEngine
+from app.engine.kyc_engine import KYC
+
+
+class FlowRouter:
+    """
+    Central conversation-flow router for Warima.
+
+    Responsibilities:
+        - Determine active conversation flow
+        - Allow explicit commands to override active flows
+        - Keep continuation messages inside the active flow
+        - Translate intents into flows
+        - Route messages to the appropriate engine
+        - Return standardized responses
+
+    The router does NOT:
+        - Detect intent
+        - Perform database operations
+        - Execute blockchain logic
+        - Process payments
+        - Send WhatsApp messages
+        - Implement LLM logic
+    """
+
+    def __init__(self):
+
+        # --------------------------------------------------------------
+        # Conversation engines
+        # --------------------------------------------------------------
+
+        self.onboarding_engine = OnboardingEngine()
+        self.wallet_engine = WalletEngine()
+        self.stokvel_engine = StokvelEngine()
+        self.investment_engine = InvestmentEngine()
+        self.kyc_engine = KYC()
+        self.agent_service = AgentService()
+
+        # --------------------------------------------------------------
+        # Lazy blockchain engine
+        # --------------------------------------------------------------
+
+        self._blockchain_engine = None
+
+    # ==================================================================
+    # LAZY BLOCKCHAIN ENGINE
+    # ==================================================================
+
+    @property
+    def blockchain_engine(self):
+
+        if self._blockchain_engine is None:
+
+            from app.engine.blockchain_engine import BlockchainEngine
+
+            self._blockchain_engine = BlockchainEngine()
+
+        return self._blockchain_engine
+
+    # ==================================================================
+    # SESSION CONTEXT
+    # ==================================================================
+
+    def _get_context(self, session) -> Dict[str, Any]:
+
+        if session is None:
+            return {}
+
+        context = getattr(session, "context", None)
+
+        if context is not None:
+            return context or {}
+
+        if isinstance(session, dict):
+            return session.get("context") or session
+
+        return {}
+
+    # ==================================================================
+    # EXIT AGENT
+    # ==================================================================
+
+    def _exit_agent(self, session):
+        """
+        Leave AI Agent mode without deleting conversation history.
+
+        Agent history is intentionally preserved.
+        """
+
+        context = self._get_context(session)
+
+        agent = dict(
+            context.get("agent") or {}
+        )
+
+        if not agent.get("active"):
+            return
+
+        agent["active"] = False
+        agent["step"] = None
+
+        SessionManager.update_context(
+            session,
+            {
+                "agent": agent,
+            },
+        )
+
+        print("=" * 70)
+        print("FLOW ROUTER: EXITING AI AGENT")
+        print("=" * 70)
+
+    # ==================================================================
+    # INTERRUPT / EXPLICIT COMMAND DETECTION
+    # ==================================================================
+
+    def _is_interrupt_intent(
+        self,
+        intent: Dict[str, Any],
+    ) -> bool:
+        """
+        Determine whether an intent is an explicit command that should
+        override the currently active conversation flow.
+
+        Active flows consume continuation input.
+
+        Explicit commands switch flows.
+
+        Examples:
+
+            Agent active
+            User: "what is my name"
+                -> Agent
+
+            Agent active
+            User: "contribute"
+                -> Wallet
+
+            Wallet active
+            User: "100"
+                -> Wallet
+
+            Wallet active
+            User: "agent"
+                -> Agent
+        """
+
+        if not intent:
+            return False
+
+        domain = intent.get("domain")
+        action = intent.get("action")
+
+        # --------------------------------------------------------------
+        # GLOBAL CONVERSATION COMMANDS
+        # --------------------------------------------------------------
+
+        if domain == "conversation":
+
+            if action in {
+                "help",
+                "cancel",
+                "greeting",
+                "confirm",
+            }:
+                return True
+
+        # --------------------------------------------------------------
+        # AI / HUMAN AGENT
+        # --------------------------------------------------------------
+
+        if domain == "support" and action == "agent":
+            return True
+
+        # --------------------------------------------------------------
+        # ACCOUNT / ONBOARDING
+        # --------------------------------------------------------------
+
+        if domain == "account":
+            return True
+
+        # --------------------------------------------------------------
+        # KYC
+        # --------------------------------------------------------------
+
+        if domain == "kyc":
+            return True
+
+        # --------------------------------------------------------------
+        # WALLET / CONTRIBUTIONS
+        # --------------------------------------------------------------
+
+        if domain in {
+            "wallet",
+            "contribution",
+        }:
+            return True
+
+        # --------------------------------------------------------------
+        # STOKVEL
+        # --------------------------------------------------------------
+
+        if domain == "stokvel":
+            return True
+
+        # --------------------------------------------------------------
+        # PORTFOLIO
+        # --------------------------------------------------------------
+
+        if domain == "portfolio":
+            return True
+
+        # --------------------------------------------------------------
+        # INVESTMENT / AGRICULTURAL INVESTMENT
+        # --------------------------------------------------------------
+
+        if domain == "investment":
+            return True
+
+        return False
+
+    # ==================================================================
+    # CURRENT FLOW
+    # ==================================================================
+
+    def current_flow(self, session) -> str:
+
+        context = self._get_context(session)
+
+        # --------------------------------------------------------------
+        # BLOCKCHAIN
+        # --------------------------------------------------------------
+
+        blockchain = context.get("blockchain") or {}
+
+        if blockchain.get("active"):
+            return self._determine_blockchain_flow(
+                blockchain
+            )
+
+        # --------------------------------------------------------------
+        # ONBOARDING
+        # --------------------------------------------------------------
+
+        onboarding = context.get("onboarding") or {}
+
+        if onboarding.get("active"):
+            return "onboarding"
+
+        # --------------------------------------------------------------
+        # KYC
+        # --------------------------------------------------------------
+
+        kyc = context.get("kyc") or {}
+
+        if kyc.get("active"):
+            return "kyc"
+
+        # --------------------------------------------------------------
+        # WALLET
+        # --------------------------------------------------------------
+
+        wallet = context.get("wallet") or {}
+
+        if wallet.get("active"):
+            return "wallet"
+
+        # --------------------------------------------------------------
+        # STOKVEL
+        # --------------------------------------------------------------
+
+        stokvel = context.get("stokvel") or {}
+
+        if stokvel.get("active"):
+            return "stokvel"
+
+        # --------------------------------------------------------------
+        # INVESTMENT
+        # --------------------------------------------------------------
+
+        investment = context.get("investment") or {}
+
+        if investment.get("active"):
+            return "investment"
+
+        # --------------------------------------------------------------
+        # AI AGENT
+        # --------------------------------------------------------------
+
+        agent = context.get("agent") or {}
+
+        if agent.get("active"):
+            return "agent"
+
+        # --------------------------------------------------------------
+        # TRANSACTION
+        # --------------------------------------------------------------
+
+        transaction = context.get("transaction") or {}
+
+        if transaction.get("active"):
+            return "transaction_monitor"
+
+        return "default"
+
+    # ==================================================================
+    # INTENT → FLOW
+    # ==================================================================
+
+    def flow_from_intent(
+        self,
+        intent: Dict[str, Any],
+    ) -> str:
+
+        if not intent:
+            return "default"
+
+        domain = intent.get("domain")
+        action = intent.get("action")
+
+        # --------------------------------------------------------------
+        # CONVERSATION
+        # --------------------------------------------------------------
+
+        if domain == "conversation":
+
+            if action in {
+                "greeting",
+                "help",
+                "confirm",
+                "cancel",
+            }:
+                return "conversation"
+
+            return "conversation"
+
+        # --------------------------------------------------------------
+        # SUPPORT / AI AGENT
+        # --------------------------------------------------------------
+
+        if domain == "support":
+
+            if action == "agent":
+                return "agent"
+
+        # --------------------------------------------------------------
+        # ACCOUNT
+        # --------------------------------------------------------------
+
+        if domain == "account":
+
+            if action == "onboard":
+                return "onboarding"
+
+            return "default"
+
+        # --------------------------------------------------------------
+        # KYC
+        # --------------------------------------------------------------
+
+        if domain == "kyc":
+            return "kyc"
+
+        # --------------------------------------------------------------
+        # WALLET
+        # --------------------------------------------------------------
+
+        if domain == "wallet":
+            return "wallet"
+
+        # --------------------------------------------------------------
+        # CONTRIBUTION
+        # --------------------------------------------------------------
+
+        if domain == "contribution":
+            return "wallet"
+
+        # --------------------------------------------------------------
+        # STOKVEL
+        # --------------------------------------------------------------
+
+        if domain == "stokvel":
+            return "stokvel"
+
+        # --------------------------------------------------------------
+        # PORTFOLIO
+        # --------------------------------------------------------------
+
+        if domain == "portfolio":
+            return "investment"
+
+        # --------------------------------------------------------------
+        # INVESTMENT
+        # --------------------------------------------------------------
+
+        if domain == "investment":
+
+            if action == "view":
+                return "investment"
+
+            if action in {
+                "buy",
+                "sell",
+                "health",
+            }:
+                return "blockchain"
+
+        return "default"
+
+    # ==================================================================
+    # BLOCKCHAIN FLOW DETECTION
+    # ==================================================================
+
+    def _determine_blockchain_flow(
+        self,
+        blockchain: Dict[str, Any],
+    ) -> str:
+
+        action = blockchain.get(
+            "action",
+            "",
+        )
+
+        blockchain_flows = {
+
+            "create_smart_account":
+                "blockchain/create_smart_account",
+
+            "deploy_smart_account":
+                "blockchain/deploy_smart_account",
+
+            "recover_smart_account":
+                "blockchain/recover_smart_account",
+
+            "view_portfolio":
+                "blockchain/portfolio",
+
+            "buy_pig":
+                "blockchain/buy_pig",
+
+            "sell_pig":
+                "blockchain/sell_pig",
+
+            "record_health":
+                "blockchain/record_health",
+
+            "view_pigs":
+                "blockchain/view_pigs",
+
+            "transaction_status":
+                "blockchain/transaction_status",
+        }
+
+        return blockchain_flows.get(
+            action,
+            "blockchain/default",
+        )
+
+    # ==================================================================
+    # MESSAGE ROUTING
+    # ==================================================================
+
+    async def route_message(
+        self,
+        user,
+        identity,
+        session,
+        member_account,
+        message: str,
+        intent: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Route an incoming message.
+
+        Routing precedence:
+
+        1. Explicit command
+        2. Existing active flow
+        3. Intent-derived flow
+        4. Default
+
+        This is the key architectural rule.
+
+        An active flow does NOT permanently own the conversation.
+
+        Example:
+
+            Agent active + "contribute"
+                -> Wallet
+
+            Wallet active + "100"
+                -> Wallet
+
+            Wallet active + "agent"
+                -> Agent
+        """
+
+        print("=" * 70)
+        print("FLOW ROUTER INPUT")
+        print("MESSAGE:", message)
+        print("INTENT:", intent)
+        print("=" * 70)
+
+        print("=" * 70)
+        print("FLOW ROUTER SESSION CONTEXT")
+        print(self._get_context(session))
+        print("=" * 70)
+
+        # ==============================================================
+        # STEP 1 — EXPLICIT COMMAND
+        # ==============================================================
+
+        if self._is_interrupt_intent(intent):
+
+            flow = self.flow_from_intent(intent)
+
+            print(
+                "FLOW ROUTER EXPLICIT COMMAND:",
+                flow,
+            )
+
+        else:
+
+            # ==========================================================
+            # STEP 2 — ACTIVE FLOW
+            # ==========================================================
+
+            active_flow = self.current_flow(session)
+
+            # ----------------------------------------------------------
+            # If an active flow exists, it owns continuation input.
+            # ----------------------------------------------------------
+
+            if active_flow != "default":
+
+                flow = active_flow
+
+            # ----------------------------------------------------------
+            # Otherwise use the detected intent.
+            # ----------------------------------------------------------
+
+            else:
+
+                flow = self.flow_from_intent(intent)
+
+            print(
+                "FLOW ROUTER ACTIVE FLOW:",
+                active_flow,
+            )
+
+            print(
+                "FLOW ROUTER SELECTED FLOW:",
+                flow,
+            )
+
+        # ==============================================================
+        # EXIT AGENT WHEN SWITCHING TO ANOTHER FLOW
+        # ==============================================================
+
+        current = self.current_flow(session)
+
+        if current == "agent" and flow != "agent":
+
+            self._exit_agent(session)
+
+        # ==============================================================
+        # FINAL ROUTING
+        # ==============================================================
+
+        print(
+            "FLOW ROUTER FINAL FLOW:",
+            flow,
+        )
+
+        print(
+            "INTENT:",
+            intent,
+        )
+
+        # ==============================================================
+        # AI AGENT
+        # ==============================================================
+
+        if flow == "agent":
+
+            return await self._handle_agent(
+                user=user,
+                identity=identity,
+                session=session,
+                member_account=member_account,
+                message=message,
+            )
+
+        # ==============================================================
+        # CONVERSATION
+        # ==============================================================
+
+        if flow == "conversation":
+
+            return self._handle_conversation(
+                message,
+                intent,
+            )
+
+        # ==============================================================
+        # ONBOARDING
+        # ==============================================================
+
+        if flow == "onboarding":
+
+            user_identity = getattr(
+                session,
+                "user_identity",
+                None,
+            )
+
+            if not user_identity or not user_identity.user:
+
+                return {
+                    "message": (
+                        "Your account session is incomplete. "
+                        "Please restart onboarding."
+                    ),
+                    "type": "text",
+                    "context_update": {},
+                }
+
+            result = self.onboarding_engine.handle(
+                user=user_identity.user,
+                session=session,
+                message=message,
+            )
+
+            return self._normalize_onboarding_result(
+                result
+            )
+
+        # ==============================================================
+        # KYC
+        # ==============================================================
+
+        if flow == "kyc":
+
+            return self.kyc_engine.process(
+                session,
+                message,
+            )
+
+        # ==============================================================
+        # WALLET
+        # ==============================================================
+
+        if flow == "wallet":
+
+            return await self.wallet_engine.process(
+                session,
+                message,
+            )
+
+        # ==============================================================
+        # STOKVEL
+        # ==============================================================
+
+        if flow == "stokvel":
+
+            return self.stokvel_engine.process(
+                session,
+                message,
+            )
+
+        # ==============================================================
+        # INVESTMENT
+        # ==============================================================
+
+        if flow == "investment":
+
+            return self.investment_engine.process(
+                session,
+                message,
+            )
+
+        # ==============================================================
+        # BLOCKCHAIN
+        # ==============================================================
+
+        if flow == "blockchain":
+
+            blockchain_flow = (
+                self._blockchain_flow_from_intent(
+                    intent
+                )
+            )
+
+            return await self.blockchain_engine.process(
+                session,
+                message,
+                blockchain_flow,
+            )
+
+        # ==============================================================
+        # BLOCKCHAIN SUB-FLOW
+        # ==============================================================
+
+        if flow.startswith("blockchain/"):
+
+            return await self.blockchain_engine.process(
+                session,
+                message,
+                flow,
+            )
+
+        # ==============================================================
+        # DEFAULT
+        # ==============================================================
+
+        return self._default_response(message)
+
+    # ==================================================================
+    # AI AGENT
+    # ==================================================================
+
+    async def _handle_agent(
+        self,
+        user,
+        identity,
+        session,
+        member_account,
+        message,
+    ) -> Dict[str, Any]:
+
+        if (
+            user is None
+            or identity is None
+            or member_account is None
+        ):
+
+            return {
+                "message": (
+                    "I couldn't load your member profile. "
+                    "Please try again."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        try:
+
+            response = await self.agent_service.process(
+                user=user,
+                identity=identity,
+                session=session,
+                member_account=member_account,
+                message=message,
+            )
+
+            return response
+
+        except Exception as exc:
+
+            print("=" * 70)
+            print("AI AGENT ERROR")
+            print(type(exc).__name__, str(exc))
+            print("=" * 70)
+
+            return {
+                "message": (
+                    "I'm having trouble connecting to the "
+                    "Warima AI Agent right now. Please try again."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+    # ==================================================================
+    # CONVERSATION HANDLER
+    # ==================================================================
+
+    def _handle_conversation(
+        self,
+        message: str,
+        intent: Dict[str, Any],
+    ) -> Dict[str, Any]:
+
+        action = intent.get("action")
+
+        # --------------------------------------------------------------
+        # GREETING
+        # --------------------------------------------------------------
+
+        if action == "greeting":
+
+            return {
+                "message": (
+                    "Hello! Welcome to Warima Wealth.\n\n"
+                    "Type *Help* to see what I can do."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        # --------------------------------------------------------------
+        # HELP
+        # --------------------------------------------------------------
+
+        if action == "help":
+
+            return {
+                "message": (
+                    "*Warima Wealth*\n\n"
+                    "• Onboard - Create your account\n"
+                    "• Wallet - Manage contributions\n"
+                    "• Portfolio - View investments\n"
+                    "• Stokvel - Manage your stokvel\n"
+                    "• KYC - Verify your identity\n"
+                    "• Pigs - View pig investments\n"
+                    "• Agent - Chat with the Warima AI Agent\n\n"
+                    "Type a command to get started."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        # --------------------------------------------------------------
+        # CONFIRM
+        # --------------------------------------------------------------
+
+        if action == "confirm":
+
+            return {
+                "message": "Confirmed.",
+                "type": "text",
+                "context_update": {},
+            }
+
+        # --------------------------------------------------------------
+        # CANCEL
+        # --------------------------------------------------------------
+
+        if action == "cancel":
+
+            return {
+                "message": "Cancelled.",
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                        "step": None,
+                        "amount": None,
+                    },
+                    "stokvel": {
+                        "active": False,
+                        "step": None,
+                    },
+                    "kyc": {
+                        "active": False,
+                        "step": None,
+                    },
+                    "investment": {
+                        "active": False,
+                        "step": None,
+                    },
+                    "agent": {
+                        "active": False,
+                        "step": None,
+                    },
+                },
+            }
+
+        return self._default_response(message)
+
+    # ==================================================================
+    # BLOCKCHAIN INTENT MAPPING
+    # ==================================================================
+
+    def _blockchain_flow_from_intent(
+        self,
+        intent: Dict[str, Any],
+    ) -> str:
+
+        action = intent.get("action")
+
+        mapping = {
+
+            "buy":
+                "blockchain/buy_pig",
+
+            "sell":
+                "blockchain/sell_pig",
+
+            "health":
+                "blockchain/record_health",
+
+            "view":
+                "blockchain/view_pigs",
+        }
+
+        return mapping.get(
+            action,
+            "blockchain/default",
+        )
+
+    # ==================================================================
+    # ONBOARDING RESULT NORMALIZATION
+    # ==================================================================
+
+    def _normalize_onboarding_result(
+        self,
+        result,
+    ) -> Dict[str, Any]:
+
+        if isinstance(result, dict):
+
+            return {
+                "message": result.get(
+                    "message",
+                    "",
+                ),
+
+                "type": result.get(
+                    "type",
+                    "text",
+                ),
+
+                "context_update": result.get(
+                    "context_update",
+                    {},
+                ),
+            }
+
+        return {
+            "message": str(result),
+            "type": "text",
+            "context_update": {},
+        }
+
+    # ==================================================================
+    # DEFAULT RESPONSE
+    # ==================================================================
+
+    def _default_response(
+        self,
+        message: str = "",
+    ) -> Dict[str, Any]:
+
+        return {
+            "message": (
+                "I didn't understand that.\n\n"
+                "Type *Help* to see what I can do."
+            ),
+            "type": "text",
+            "context_update": {},
+        }

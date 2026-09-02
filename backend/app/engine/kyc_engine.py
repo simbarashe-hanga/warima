@@ -1,175 +1,414 @@
-from typing import Dict, Optional
+from datetime import datetime
+from typing import Dict, Any
+
 from app.services.identity.session_manager import SessionManager
 
+
 class KYC:
-    """Handles KYC (Know Your Customer) operations"""
-    
+    """
+    Handles KYC conversation flow.
+
+    Session state is managed exclusively through SessionManager.
+    Actual identity verification/compliance belongs in services.
+    """
+
     @classmethod
-    def process(cls, session: Dict, message: str) -> Dict:
-        """Process KYC commands"""
-        message_lower = message.lower().strip()
-        
-        # Get KYC context
-        context = session.get("context", {})
-        kyc_context = context.get("kyc", {})
-        
-        # Check if in KYC flow
+    async def handle(
+        self,
+        message: str,
+        intent: Dict[str, Any],
+        session_context: Dict[str, Any],
+        member_context: Dict[str, Any],
+    ) -> Dict[str, Any]:
+
+        message_lower = (message or "").lower().strip()
+
+        context = SessionManager.context(session)
+        kyc_context = context.get("kyc") or {}
+
+        # --------------------------------------------------------------
+        # ACTIVE KYC FLOW
+        # --------------------------------------------------------------
+
         if kyc_context.get("active"):
-            return cls._handle_kyc_flow(session, message)
-        
-        # Handle KYC commands
-        if message_lower in ["kyc", "verify", "identity"]:
+            return cls._handle_kyc_flow(
+                session,
+                message,
+            )
+
+        # --------------------------------------------------------------
+        # KYC COMMANDS
+        # --------------------------------------------------------------
+
+        if message_lower in {
+            "kyc",
+            "verify",
+            "identity",
+        }:
             return cls._start_kyc_flow(session)
-        
-        elif message_lower == "kyc status":
+
+        if message_lower == "kyc status":
             return cls._get_kyc_status(session)
-        
+
         return {
-            "message": "🔐 *KYC Commands*\n\n"
-                       "• KYC - Start identity verification\n"
-                       "• KYC STATUS - Check your verification status\n\n"
-                       "We need to verify your identity for compliance.",
-            "context_update": {}
+            "message": (
+                "*KYC Commands*\n\n"
+                "• KYC - Start identity verification\n"
+                "• KYC STATUS - Check your verification status\n\n"
+                "We need to verify your identity for compliance."
+            ),
+            "type": "text",
+            "context_update": {},
         }
-    
+
+    # ==================================================================
+    # START
+    # ==================================================================
+
     @classmethod
-    def _start_kyc_flow(cls, session: Dict) -> Dict:
-        """Start the KYC flow"""
-        SessionManager.update_context(session, {
-            "kyc": {
-                "active": True,
-                "step": "full_name"
-            }
-        })
-        
+    def _start_kyc_flow(cls, session) -> Dict[str, Any]:
+
+        SessionManager.start_kyc(
+            session,
+            step="full_name",
+        )
+
+        SessionManager.update_context(
+            session,
+            {
+                "kyc": {
+                    "active": True,
+                    "step": "full_name",
+                    "verified": False,
+                }
+            },
+        )
+
         return {
-            "message": "🔐 *Identity Verification*\n\n"
-                       "Let's verify your identity. This is required for compliance.\n\n"
-                       "What is your full name as it appears on your ID?",
-            "context_update": {"kyc": {"active": True, "step": "full_name"}}
+            "message": (
+                "*Identity Verification*\n\n"
+                "Let's verify your identity. "
+                "This is required for compliance.\n\n"
+                "What is your full name as it appears on your ID?"
+            ),
+            "type": "text",
+            "context_update": {
+                "kyc": {
+                    "active": True,
+                    "step": "full_name",
+                }
+            },
         }
-    
+
+    # ==================================================================
+    # ACTIVE FLOW
+    # ==================================================================
+
     @classmethod
-    def _handle_kyc_flow(cls, session: Dict, message: str) -> Dict:
-        """Handle active KYC flow"""
-        context = session.get("context", {})
-        kyc_context = context.get("kyc", {})
+    def _handle_kyc_flow(
+        cls,
+        session,
+        message: str,
+    ) -> Dict[str, Any]:
+
+        context = SessionManager.context(session)
+        kyc_context = context.get("kyc") or {}
+
         step = kyc_context.get("step", "full_name")
-        
-        message_lower = message.lower().strip()
-        
-        if message_lower in ["back", "exit", "cancel"]:
-            SessionManager.update_context(session, {
-                "kyc": {"active": False}
-            })
+
+        message = (message or "").strip()
+        message_lower = message.lower()
+
+        # --------------------------------------------------------------
+        # CANCEL
+        # --------------------------------------------------------------
+
+        if message_lower in {
+            "back",
+            "exit",
+            "cancel",
+        }:
+
+            SessionManager.finish_kyc(session)
+
             return {
-                "message": "KYC verification cancelled. Type KYC to start again.",
-                "context_update": {"kyc": {"active": False}}
-            }
-        
-        if step == "full_name":
-            # Store full name
-            SessionManager.update_context(session, {
-                "kyc": {
-                    "active": True,
-                    "step": "id_number",
-                    "full_name": message
-                }
-            })
-            return {
-                "message": f"Thank you, {message}.\n\n"
-                           "Please enter your ID number (e.g., 9201025671082):",
-                "context_update": {"kyc": {"step": "id_number"}}
-            }
-        
-        elif step == "id_number":
-            # Store ID number
-            SessionManager.update_context(session, {
-                "kyc": {
-                    "active": True,
-                    "step": "phone",
-                    "full_name": kyc_context.get("full_name", ""),
-                    "id_number": message
-                }
-            })
-            return {
-                "message": "Please enter your phone number (e.g., 0712345678):",
-                "context_update": {"kyc": {"step": "phone"}}
-            }
-        
-        elif step == "phone":
-            # Store phone and confirm
-            SessionManager.update_context(session, {
-                "kyc": {
-                    "active": True,
-                    "step": "confirm",
-                    "full_name": kyc_context.get("full_name", ""),
-                    "id_number": kyc_context.get("id_number", ""),
-                    "phone": message
-                }
-            })
-            
-            return {
-                "message": f"✅ *Please confirm your details*\n\n"
-                           f"Name: {kyc_context.get('full_name', '')}\n"
-                           f"ID Number: {kyc_context.get('id_number', '')}\n"
-                           f"Phone: {message}\n\n"
-                           "Reply CONFIRM to submit or CANCEL to start over.",
-                "context_update": {"kyc": {"step": "confirm"}}
-            }
-        
-        elif step == "confirm":
-            if message_lower in ["confirm", "yes", "1"]:
-                # Complete KYC
-                SessionManager.update_context(session, {
+                "message": (
+                    "KYC verification cancelled.\n\n"
+                    "Type *KYC* to start again."
+                ),
+                "type": "text",
+                "context_update": {
                     "kyc": {
                         "active": False,
-                        "verified": True,
-                        "completed_at": str(datetime.now())
                     }
-                })
-                return {
-                    "message": "🎉 *KYC Verification Complete!*\n\n"
-                               "Your identity has been verified successfully.\n"
-                               "You now have full access to all features.",
-                    "context_update": {"kyc": {"active": False, "verified": True}}
-                }
-            else:
-                # Reset KYC
-                SessionManager.update_context(session, {
-                    "kyc": {"active": True, "step": "full_name"}
-                })
-                return {
-                    "message": "Let's start over.\n\n"
-                               "What is your full name as it appears on your ID?",
-                    "context_update": {"kyc": {"step": "full_name"}}
-                }
-        
-        return {
-            "message": "I didn't understand that. Please follow the prompts.",
-            "context_update": {}
-        }
-    
-    @classmethod
-    def _get_kyc_status(cls, session: Dict) -> Dict:
-        """Get KYC verification status"""
-        context = session.get("context", {})
-        kyc_context = context.get("kyc", {})
-        
-        if kyc_context.get("verified"):
-            return {
-                "message": "✅ *KYC Status: Verified*\n\n"
-                           "Your identity has been verified.\n"
-                           f"Verified on: {kyc_context.get('completed_at', 'Unknown')}",
-                "context_update": {}
-            }
-        else:
-            return {
-                "message": "⚠️ *KYC Status: Not Verified*\n\n"
-                           "Please complete KYC verification to access all features.\n"
-                           "Type KYC to start the verification process.",
-                "context_update": {}
+                },
             }
 
-# Import datetime for timestamps
-from datetime import datetime
+        # --------------------------------------------------------------
+        # FULL NAME
+        # --------------------------------------------------------------
+
+        if step == "full_name":
+
+            if not message:
+                return {
+                    "message": (
+                        "Please enter your full name "
+                        "as it appears on your ID."
+                    ),
+                    "type": "text",
+                    "context_update": {},
+                }
+
+            SessionManager.update_context(
+                session,
+                {
+                    "kyc": {
+                        "active": True,
+                        "step": "id_number",
+                        "full_name": message,
+                    }
+                },
+            )
+
+            return {
+                "message": (
+                    f"Thank you, {message}.\n\n"
+                    "Please enter your ID number "
+                    "(e.g., 9201025671082):"
+                ),
+                "type": "text",
+                "context_update": {
+                    "kyc": {
+                        "active": True,
+                        "step": "id_number",
+                    }
+                },
+            }
+
+        # --------------------------------------------------------------
+        # ID NUMBER
+        # --------------------------------------------------------------
+
+        if step == "id_number":
+
+            if not message:
+                return {
+                    "message": "Please enter your ID number.",
+                    "type": "text",
+                    "context_update": {},
+                }
+
+            SessionManager.update_context(
+                session,
+                {
+                    "kyc": {
+                        "active": True,
+                        "step": "phone",
+                        "id_number": message,
+                    }
+                },
+            )
+
+            return {
+                "message": (
+                    "Please enter your phone number "
+                    "(e.g., 0712345678):"
+                ),
+                "type": "text",
+                "context_update": {
+                    "kyc": {
+                        "active": True,
+                        "step": "phone",
+                    }
+                },
+            }
+
+        # --------------------------------------------------------------
+        # PHONE
+        # --------------------------------------------------------------
+
+        if step == "phone":
+
+            if not message:
+                return {
+                    "message": "Please enter your phone number.",
+                    "type": "text",
+                    "context_update": {},
+                }
+
+            SessionManager.update_context(
+                session,
+                {
+                    "kyc": {
+                        "active": True,
+                        "step": "confirm",
+                        "phone": message,
+                    }
+                },
+            )
+
+            context = SessionManager.context(session)
+            kyc_context = context.get("kyc") or {}
+
+            return {
+                "message": (
+                    "*Please confirm your details*\n\n"
+                    f"Name: {kyc_context.get('full_name', '')}\n"
+                    f"ID Number: {kyc_context.get('id_number', '')}\n"
+                    f"Phone: {kyc_context.get('phone', '')}\n\n"
+                    "Reply *CONFIRM* to submit "
+                    "or *CANCEL* to start over."
+                ),
+                "type": "text",
+                "context_update": {
+                    "kyc": {
+                        "active": True,
+                        "step": "confirm",
+                    }
+                },
+            }
+
+        # --------------------------------------------------------------
+        # CONFIRM
+        # --------------------------------------------------------------
+
+        if step == "confirm":
+
+            if message_lower in {
+                "confirm",
+                "yes",
+                "y",
+                "1",
+            }:
+
+                completed_at = datetime.utcnow().isoformat()
+
+                SessionManager.update_context(
+                    session,
+                    {
+                        "kyc": {
+                            "active": False,
+                            "step": None,
+                            "verified": True,
+                            "completed_at": completed_at,
+                        }
+                    },
+                )
+
+                return {
+                    "message": (
+                        "*KYC Verification Complete!*\n\n"
+                        "Your identity has been submitted successfully.\n"
+                        "You now have access to features requiring "
+                        "identity verification."
+                    ),
+                    "type": "text",
+                    "context_update": {
+                        "kyc": {
+                            "active": False,
+                            "verified": True,
+                        }
+                    },
+                }
+
+            if message_lower in {
+                "cancel",
+                "no",
+                "n",
+                "2",
+            }:
+
+                SessionManager.update_context(
+                    session,
+                    {
+                        "kyc": {
+                            "active": True,
+                            "step": "full_name",
+                            "full_name": None,
+                            "id_number": None,
+                            "phone": None,
+                        }
+                    },
+                )
+
+                return {
+                    "message": (
+                        "Let's start over.\n\n"
+                        "What is your full name as it appears "
+                        "on your ID?"
+                    ),
+                    "type": "text",
+                    "context_update": {
+                        "kyc": {
+                            "active": True,
+                            "step": "full_name",
+                        }
+                    },
+                }
+
+            return {
+                "message": (
+                    "Please reply *CONFIRM* to submit "
+                    "or *CANCEL* to start over."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        # --------------------------------------------------------------
+        # UNKNOWN STEP
+        # --------------------------------------------------------------
+
+        SessionManager.start_kyc(
+            session,
+            step="full_name",
+        )
+
+        return {
+            "message": (
+                "Let's restart your KYC verification.\n\n"
+                "What is your full name as it appears on your ID?"
+            ),
+            "type": "text",
+            "context_update": {
+                "kyc": {
+                    "active": True,
+                    "step": "full_name",
+                }
+            },
+        }
+
+    # ==================================================================
+    # STATUS
+    # ==================================================================
+
+    @classmethod
+    def _get_kyc_status(cls, session) -> Dict[str, Any]:
+
+        context = SessionManager.context(session)
+        kyc_context = context.get("kyc") or {}
+
+        if kyc_context.get("verified"):
+
+            return {
+                "message": (
+                    "*KYC Status: Verified*\n\n"
+                    "Your identity has been verified.\n"
+                    f"Verified on: "
+                    f"{kyc_context.get('completed_at', 'Unknown')}"
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        return {
+            "message": (
+                "*KYC Status: Not Verified*\n\n"
+                "Please complete KYC verification "
+                "to access all features.\n\n"
+                "Type *KYC* to start the verification process."
+            ),
+            "type": "text",
+            "context_update": {},
+        }

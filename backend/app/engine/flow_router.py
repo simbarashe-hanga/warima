@@ -1,326 +1,864 @@
 # backend/app/engine/flow_router.py
 
-from typing import Dict, Any
+from __future__ import annotations
 
-from app.engine.onboarding_engine import OnboardingEngine
-from app.engine.wallet_engine import WalletEngine
-from app.engine.stokvel_engine import StokvelEngine
-from app.engine.investment_engine import InvestmentEngine
-from app.engine.kyc_engine import KYC
+import re
+from dataclasses import asdict, is_dataclass
+from typing import Any, Dict, Optional
+
+from app.services.identity.session_manager import SessionManager
 
 
 class FlowRouter:
     """
-    Routes incoming user messages to the appropriate conversation engine.
+    Central message router for Warima.
 
     Responsibilities:
-        - Determine the user's active conversation flow
-        - Route the message to that flow's engine
-        - Return the engine response
+    - Determine the active flow.
+    - Handle deterministic commands.
+    - Route business intents to the appropriate engine.
+    - Route genuine conversation to the AI agent.
+    - Apply session context updates.
 
-    Non-responsibilities:
-        - Database operations
-        - Wallet creation
-        - Blockchain transactions
-        - Portfolio calculations
-        - Investment logic
-        - KYC/business logic
-        - WhatsApp communication
+    This class should NOT contain business logic.
     """
 
-    def __init__(self):
-        # Conversation engines
-        self.onboarding_engine = OnboardingEngine()
-        self.wallet_engine = WalletEngine()
-        self.stokvel_engine = StokvelEngine()
-        self.investment_engine = InvestmentEngine()
-        self.kyc_engine = KYC()
+    def __init__(
+        self,
+        onboarding_engine=None,
+        wallet_engine=None,
+        stokvel_engine=None,
+        kyc_engine=None,
+        investment_engine=None,
+        portfolio_service=None,
+        blockchain_engine=None,
+        agent=None,
+    ):
+        self.onboarding_engine = onboarding_engine
+        self.wallet_engine = wallet_engine
+        self.stokvel_engine = stokvel_engine
+        self.kyc_engine = kyc_engine
+        self.investment_engine = investment_engine
+        self.portfolio_service = portfolio_service
+        self.blockchain_engine = blockchain_engine
+        self.agent = agent
 
-    #-------------------------------------------------------------------
-    # Lazy blockchain initialization
-    #-------------------------------------------------------------------
+    # ============================================================
+    # PUBLIC ENTRY POINT
+    # ============================================================
 
-    @property
-    def blockchain_engine(self):
-        """
-        Initialize BlockchainEngine only when a blockchain flow
-        is actually requested.
-        """
-        if self._blockchain_engine is None:
-            from app.engine.blockchain_engine import BlockchainEngine
+    async def route(
+        self,
+        message: str,
+        intent: Optional[Dict[str, Any]],
+        session,
+        member_context: Optional[Dict[str, Any]] = None,
+        user=None,
+        identity=None,
+        member_account=None,
+    ) -> Dict[str, Any]:
 
-            self._blockchain_engine
+        message = (message or "").strip()
+        member_context = member_context or {}
+        intent = intent or {}
 
-    # ------------------------------------------------------------------
-    # FLOW DETECTION
-    # ------------------------------------------------------------------
+        session_context = SessionManager.context(session)
 
-    def current_flow(self, session: Dict[str, Any]) -> str:
-        """
-        Determine the currently active conversation flow.
+        print("=" * 70)
+        print("FLOW ROUTER INPUT")
+        print("MESSAGE:", message)
+        print("INTENT:", intent)
+        print("=" * 70)
 
-        The session context is the source of truth for conversational state.
+        # --------------------------------------------------------
+        # 1. DETERMINISTIC COMMANDS
+        #
+        # These MUST NOT depend on an LLM.
+        # --------------------------------------------------------
 
-        Priority:
-            1. Onboarding
-            2. KYC
-            3. Wallet
-            4. Stokvel
-            5. Investment
-            6. Blockchain
-            7. Default
-        """
+        command = self._detect_command(message)
 
-        context = session.get("context", {})
+        if command:
+            print("FLOW ROUTER COMMAND:", command)
 
-        # Blockchain
-        blockchain = context.get("blockchain", {})
-        if blockchain.get("active"):
-            return self._determine_blockchain_flow(blockchain)
+            result = await self._handle_command(
+                command=command,
+                message=message,
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+            )
 
-        # --------------------------------------------------------------
-        # 1. ONBOARDING
-        # --------------------------------------------------------------
+            return self._finalise(result, session_context)
 
-        onboarding = context.get("onboarding", {})
+        # --------------------------------------------------------
+        # 2. ACTIVE FLOW TAKES PRIORITY
+        #
+        # If the member is halfway through a transaction,
+        # continue that transaction.
+        # --------------------------------------------------------
 
-        if onboarding.get("active"):
-            return "onboarding"
+        active_flow = self._get_active_flow(session_context)
 
-        # --------------------------------------------------------------
-        # 2. KYC
-        # --------------------------------------------------------------
+        print("FLOW ROUTER ACTIVE FLOW:", active_flow)
 
-        kyc = context.get("kyc", {})
+        if active_flow:
+            result = await self._route_active_flow(
+                active_flow=active_flow,
+                message=message,
+                intent=intent,
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+            )
 
-        if kyc.get("active"):
-            return "kyc"
+            if result is not None:
+                return self._finalise(result, session_context)
 
-        # --------------------------------------------------------------
-        # 3. WALLET
-        # --------------------------------------------------------------
+        # --------------------------------------------------------
+        # 3. ROUTE BY STRUCTURED INTENT
+        # --------------------------------------------------------
 
-        wallet = context.get("wallet", {})
+        flow = self._flow_from_intent(intent)
 
-        if wallet.get("active"):
-            return "wallet"
+        print("FLOW ROUTER SELECTED FLOW:", flow)
 
-        # --------------------------------------------------------------
-        # 4. STOKVEL
-        # --------------------------------------------------------------
+        if flow != "conversation":
+            result = await self._route_flow(
+                flow=flow,
+                message=message,
+                intent=intent,
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+            )
 
-        stokvel = context.get("stokvel", {})
+            if result is not None:
+                return self._finalise(result, session_context)
 
-        if stokvel.get("active"):
-            return "stokvel"
+        # --------------------------------------------------------
+        # 4. CONVERSATION FALLBACK
+        #
+        # AI is ONLY used here.
+        # --------------------------------------------------------
 
-        # --------------------------------------------------------------
-        # 5. INVESTMENT
-        # --------------------------------------------------------------
-
-        investment = context.get("investment", {})
-
-        if investment.get("active"):
-            return "investment"
-
-        # --------------------------------------------------------------
-        # 6. DEFAULT
-        # --------------------------------------------------------------
-        transaction = context.get("transaction", {})
-        if transaction.get("active"):
-            return "transaction_monitor"
-
-        return "default"
-
-    # ------------------------------------------------------------------
-    # BLOCKCHAIN FLOW DETECTION
-    # ------------------------------------------------------------------
-
-    def _determine_blockchain_flow(self, blockchain: Dict[str, Any]) -> str:
-        """
-        Determine the active blockchain sub-flow.
-
-        This method only determines routing.
-        Blockchain operations themselves belong to BlockchainEngine
-        and its underlying services.
-        """
-
-        action = blockchain.get("action", "")
-
-        blockchain_flows = {
-            "create_smart_account": "blockchain/create_smart_account",
-            "deploy_smart_account": "blockchain/deploy_smart_account",
-            "recover_smart_account": "blockchain/recover_smart_account",
-            "view_portfolio": "blockchain/portfolio",
-            "buy_pig": "blockchain/buy_pig",
-            "sell_pig": "blockchain/sell_pig",
-            "record_health": "blockchain/record_health",
-            "view_pigs": "blockchain/view_pigs",
-            "transaction_status": "blockchain/transaction_status",
-        }
-
-        return blockchain_flows.get(
-            action,
-            "blockchain/default"
+        result = await self._route_agent(
+            message=message,
+            session=session,
+            session_context=session_context,
+            member_context=member_context,
         )
 
-    # ------------------------------------------------------------------
-    # MESSAGE ROUTING
-    # ------------------------------------------------------------------
+        return self._finalise(result, session_context)
 
-    async def route_message(
-        self,
-        session: Dict[str, Any],
-        message: str,
-    ) -> Dict[str, Any]:
-        """
-        Route a user message to the appropriate conversation engine.
+    # ============================================================
+    # DETERMINISTIC COMMAND DETECTION
+    # ============================================================
 
-        Args:
-            session:
-                Current user session and conversation context.
+    def _detect_command(self, message: str) -> Optional[str]:
 
-            message:
-                Incoming user message.
+        text = self._normalise(message)
 
-        Returns:
-            Standardized engine response.
-        """
+        # --------------------------------------------------------
+        # HELP
+        # --------------------------------------------------------
 
-        flow = self.current_flow(session)
-
-        # --------------------------------------------------------------
-        # ONBOARDING
-        # --------------------------------------------------------------
-
-        if flow == "onboarding":
-            return await self._route_onboarding(
-                session,
-                message
-            )
-
-        # --------------------------------------------------------------
-        # KYC
-        # --------------------------------------------------------------
-
-        if flow == "kyc":
-            return await self._route_kyc(
-                session,
-                message
-            )
-
-        # --------------------------------------------------------------
-        # WALLET
-        # --------------------------------------------------------------
-
-        if flow == "wallet":
-            return await self._route_wallet(
-                session,
-                message
-            )
-
-        # --------------------------------------------------------------
-        # STOKVEL
-        # --------------------------------------------------------------
-
-        if flow == "stokvel":
-            return await self._route_stokvel(
-                session,
-                message
-            )
-
-        # --------------------------------------------------------------
-        # INVESTMENT
-        # --------------------------------------------------------------
-
-        if flow == "investment":
-            return await self._route_investment(
-                session,
-                message
-            )
-
-        # --------------------------------------------------------------
-        # BLOCKCHAIN
-        # --------------------------------------------------------------
-
-        if flow.startswith("blockchain/"):
-            return await self.blockchain_engine.process(
-                session,
-                message,
-                flow
-            )
-
-        return self._default_response(message)
-
-    # ------------------------------------------------------------------
-    # DEFAULT
-    # ------------------------------------------------------------------
-    def _default_response(self, message:str) -> Dict:
-        message_lower = message.lower().strip()
-        if message_lower in {
-            "hi",
-            "hello",
-            "hey",
-            "start",
-            "ndeipi"
-        }:
-            return {
-                "message": (
-                    "Hello! Welcome to Warima Wealth.\n\n"
-                    "Type *Help* to see what I can do."
-                ),
-                "type": "text",
-                "context_update": {}
-            }
-
-        if message_lower in {
+        if text in {
             "help",
             "menu",
-            "?"
+            "options",
+            "what can you do",
+            "what do you do",
         }:
+            return "help"
+
+        # --------------------------------------------------------
+        # IDENTITY / NAME
+        # --------------------------------------------------------
+
+        if text in {
+            "who are you",
+            "what is your name",
+            "whats your name",
+            "what's your name",
+            "your name",
+            "who is warima",
+            "tell me your name",
+        }:
+            return "identity"
+
+        # --------------------------------------------------------
+        # EXIT AGENT
+        # --------------------------------------------------------
+
+        if text in {
+            "exit",
+            "quit",
+            "cancel",
+            "stop",
+            "close",
+            "back",
+        }:
+            return "exit"
+
+        # --------------------------------------------------------
+        # AGENT
+        # --------------------------------------------------------
+
+        if text in {
+            "agent",
+            "ai",
+            "assistant",
+            "chat",
+            "talk to agent",
+            "talk to ai",
+        }:
+            return "agent"
+
+        # --------------------------------------------------------
+        # WALLET
+        # --------------------------------------------------------
+
+        if text in {
+            "wallet",
+            "my wallet",
+            "wallets",
+            "my wallets",
+        }:
+            return "wallet"
+
+        # --------------------------------------------------------
+        # BALANCE
+        # --------------------------------------------------------
+
+        if text in {
+            "balance",
+            "my balance",
+            "check balance",
+        }:
+            return "balance"
+
+        # --------------------------------------------------------
+        # STOKVEL
+        # --------------------------------------------------------
+
+        if text in {
+            "stokvel",
+            "stokvels",
+            "my stokvel",
+            "my stokvels",
+            "manage stokvel",
+            "manage stokvels",
+        }:
+            return "stokvel"
+
+        # --------------------------------------------------------
+        # CONTRIBUTION
+        # --------------------------------------------------------
+
+        if text in {
+            "contribute",
+            "contribution",
+            "make contribution",
+            "make a contribution",
+            "pay contribution",
+        }:
+            return "contribute"
+
+        # --------------------------------------------------------
+        # KYC
+        # --------------------------------------------------------
+
+        if text in {
+            "kyc",
+            "verify me",
+            "verification",
+            "identity verification",
+        }:
+            return "kyc"
+
+        # --------------------------------------------------------
+        # INVESTMENT
+        # --------------------------------------------------------
+
+        if text in {
+            "investment",
+            "investments",
+            "invest",
+            "my investments",
+        }:
+            return "investment"
+
+        # --------------------------------------------------------
+        # PROFILE
+        # --------------------------------------------------------
+
+        if text in {
+            "profile",
+            "my profile",
+            "account",
+            "my account",
+        }:
+            return "profile"
+
+        return None
+
+    # ============================================================
+    # COMMAND HANDLER
+    # ============================================================
+
+    async def _handle_command(
+        self,
+        command: str,
+        message: str,
+        session,
+        session_context: Dict[str, Any],
+        member_context: Dict[str, Any],
+    ) -> Dict[str, Any]:
+
+        # --------------------------------------------------------
+        # IDENTITY
+        # --------------------------------------------------------
+
+        if command == "identity":
+
+            return {
+                "message": "I'm Warima, your financial assistant.",
+                "type": "text",
+                "context_update": {},
+            }
+
+        # --------------------------------------------------------
+        # HELP
+        # --------------------------------------------------------
+
+        if command == "help":
+
             return {
                 "message": (
-                    "*Warima Wealth*\n\n"
-                    "Onboard - Create your account\n"
-                    "Wallet - Manage your wallet\n"
-                    "Portfolio - View your portfolio\n"
-                    "Stokvel - Manage your stokvel\n"
-                    "KYC - Verify your identity\n"
-                    "Help - Show this menu"
+                    "Here's what I can help with:\n\n"
+                    "• *Wallet*\n"
+                    "• *Balance*\n"
+                    "• *Stokvels*\n"
+                    "• *Contribute*\n"
+                    "• *KYC*\n"
+                    "• *Investments*\n"
+                    "• *Profile*\n\n"
+                    "You can also ask me a question."
                 ),
                 "type": "text",
-                "context_update": {}
+                "context_update": {},
             }
 
-        if message_lower == "onboard":
-            return {
-                "message": "Let's get you started. Type *Start* to begin onboarding.",
-                "type": "text",
-                "context_update": {
-                    "onboarding": {
-                        "active": True,
-                        "step": "start"
-                    }
-                }
+        # --------------------------------------------------------
+        # AGENT
+        # --------------------------------------------------------
+
+        if command == "agent":
+
+            session_context["agent"] = {
+                **session_context.get("agent", {}),
+                "active": True,
+                "step": "chatting",
             }
 
-        if message_lower == "wallet":
             return {
-                "message": "Opening your wallet...",
+                "message": "Sure. How can I help?",
                 "type": "text",
                 "context_update": {
-                    "wallet": {
-                        "active": True,
-                        "step": "start"
-                    }
+                    "agent": session_context["agent"],
+                },
+            }
+
+        # --------------------------------------------------------
+        # EXIT
+        # --------------------------------------------------------
+
+        if command == "exit":
+
+            self._deactivate_agent(session_context)
+
+            return {
+                "message": "Okay. You're back at the main menu.",
+                "type": "text",
+                "context_update": {
+                    "agent": session_context["agent"],
+                },
+            }
+
+        # --------------------------------------------------------
+        # WALLET
+        # --------------------------------------------------------
+
+        if command == "wallet":
+
+            return await self._route_flow(
+                flow="wallet",
+                message=message,
+                intent={
+                    "intent": "wallet.view",
+                    "domain": "wallet",
+                    "action": "view",
+                    "parameters": {},
+                },
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+            )
+
+        # --------------------------------------------------------
+        # BALANCE
+        # --------------------------------------------------------
+
+        if command == "balance":
+
+            return await self._route_flow(
+                flow="wallet",
+                message=message,
+                intent={
+                    "intent": "wallet.balance",
+                    "domain": "wallet",
+                    "action": "balance",
+                    "parameters": {},
+                },
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+            )
+
+        # --------------------------------------------------------
+        # STOKVEL
+        # --------------------------------------------------------
+
+        if command == "stokvel":
+
+            return await self._route_flow(
+                flow="stokvel",
+                message=message,
+                intent={
+                    "intent": "stokvel.view",
+                    "domain": "stokvel",
+                    "action": "view",
+                    "parameters": {},
+                },
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+            )
+
+        # --------------------------------------------------------
+        # CONTRIBUTION
+        # --------------------------------------------------------
+
+        if command == "contribute":
+
+            return await self._route_flow(
+                flow="wallet",
+                message=message,
+                intent={
+                    "intent": "wallet.contribute",
+                    "domain": "wallet",
+                    "action": "contribute",
+                    "parameters": {},
+                },
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+            )
+
+        # --------------------------------------------------------
+        # KYC
+        # --------------------------------------------------------
+
+        if command == "kyc":
+
+            return await self._route_flow(
+                flow="kyc",
+                message=message,
+                intent={
+                    "intent": "kyc.start",
+                    "domain": "kyc",
+                    "action": "start",
+                    "parameters": {},
+                },
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+            )
+
+        # --------------------------------------------------------
+        # INVESTMENT
+        # --------------------------------------------------------
+
+        if command == "investment":
+
+            return await self._route_flow(
+                flow="investment",
+                message=message,
+                intent={
+                    "intent": "investment.view",
+                    "domain": "investment",
+                    "action": "view",
+                    "parameters": {},
+                },
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+            )
+
+        # --------------------------------------------------------
+        # PROFILE
+        # --------------------------------------------------------
+
+        if command == "profile":
+
+            profile = member_context.get("profile", {})
+
+            first_name = profile.get("first_name")
+            last_name = profile.get("last_name")
+
+            if first_name or last_name:
+
+                name = " ".join(
+                    value
+                    for value in [first_name, last_name]
+                    if value
+                )
+
+                return {
+                    "message": f"Your profile name is {name}.",
+                    "type": "text",
+                    "context_update": {},
                 }
+
+            return {
+                "message": "I don't have enough information about your profile.",
+                "type": "text",
+                "context_update": {},
             }
 
         return {
-            "message": (
-                f"I didn't understand '{message}'.\n\n"
-                "Type *Help* to see available commands."
-            ),
+            "message": "I didn't understand that.\n\nType *Help* to see what I can do.",
             "type": "text",
-            "context_update": {}
+            "context_update": {},
         }
+
+    # ============================================================
+    # ACTIVE FLOW
+    # ============================================================
+
+    def _get_active_flow(
+        self,
+        context: Dict[str, Any],
+    ) -> Optional[str]:
+
+        priority = [
+            "onboarding",
+            "wallet",
+            "stokvel",
+            "kyc",
+            "investment",
+        ]
+
+        for flow in priority:
+
+            state = context.get(flow, {})
+
+            if state.get("active") is True:
+                return flow
+
+        return None
+
+    async def _route_active_flow(
+        self,
+        active_flow: str,
+        message: str,
+        intent: Dict[str, Any],
+        session,
+        session_context: Dict[str, Any],
+        member_context: Dict[str, Any],
+    ):
+
+        return await self._route_flow(
+            flow=active_flow,
+            message=message,
+            intent=intent,
+            session=session,
+            session_context=session_context,
+            member_context=member_context,
+        )
+
+    # ============================================================
+    # INTENT → FLOW
+    # ============================================================
+
+    def _flow_from_intent(
+        self,
+        intent: Dict[str, Any],
+    ) -> str:
+
+        domain = intent.get("domain")
+        name = intent.get("intent", "")
+
+        if isinstance(domain, str):
+            domain = domain.lower()
+
+        if isinstance(name, str):
+
+            if name.startswith("contribution."):
+                return "wallet"
+
+            if name.startswith("onboarding."):
+                return "onboarding"
+
+            if name.startswith("wallet."):
+                return "wallet"
+
+            if name.startswith("stokvel."):
+                return "stokvel"
+
+            if name.startswith("kyc."):
+                return "kyc"
+
+            if name.startswith("investment."):
+                return "investment"
+
+            if name.startswith("portfolio."):
+                return "portfolio"
+
+        if domain in {
+            "onboarding",
+            "wallet",
+            "stokvel",
+            "kyc",
+            "investment",
+            "portfolio",
+        }:
+            return domain
+
+        return "conversation"
+
+    # ============================================================
+    # FLOW ROUTING
+    # ============================================================
+
+    async def _route_flow(
+        self,
+        flow: str,
+        message: str,
+        intent: Dict[str, Any],
+        session,
+        session_context: Dict[str, Any],
+        member_context: Dict[str, Any],
+    ):
+
+        print("FLOW ROUTER FINAL FLOW:", flow)
+
+        if flow == "onboarding":
+            if self.onboarding_engine:
+                return await self.onboarding_engine.handle(
+                    message=message,
+                    intent=intent,
+                    session=session,
+                    member_context=member_context,
+                )
+
+        if flow == "wallet":
+            if self.wallet_engine:
+                return await self.wallet_engine.handle(
+                    message=message,
+                    intent=intent,
+                    session=session,
+                    member_context=member_context,
+                )
+
+        if flow == "stokvel":
+            if self.stokvel_engine:
+                return await self.stokvel_engine.handle(
+                    message=message,
+                    intent=intent,
+                    session=session,
+                    member_context=member_context,
+                )
+
+        if flow == "kyc":
+            if self.kyc_engine:
+                return await self.kyc_engine.handle(
+                    message=message,
+                    intent=intent,
+                    session=session,
+                    member_context=member_context,
+                )
+
+        if flow == "investment":
+            if self.investment_engine:
+                return await self.investment_engine.handle(
+                    message=message,
+                    intent=intent,
+                    session=session,
+                    member_context=member_context,
+                )
+
+        if flow == "portfolio":
+            if self.portfolio_service:
+                return await self.portfolio_service.handle(
+                    message=message,
+                    intent=intent,
+                    session=session,
+                    member_context=member_context,
+                )
+
+        return None
+
+    # ============================================================
+    # AI AGENT
+    # ============================================================
+
+    async def _route_agent(
+        self,
+        message: str,
+        session,
+        session_context: Dict[str, Any],
+        member_context: Dict[str, Any],
+    ):
+
+        agent_context = dict(
+            session_context.get("agent") or {}
+        )
+
+        agent_context["active"] = True
+        agent_context["step"] = "chatting"
+
+        session_context["agent"] = agent_context
+
+        if not self.agent:
+
+            return {
+                "message": (
+                    "The Warima AI Agent is currently unavailable."
+                ),
+                "type": "text",
+                "context_update": {
+                    "agent": agent_context,
+                },
+            }
+
+        try:
+
+            result = await self.agent.process(
+                user=member_context.get("user"),
+                identity=member_context.get("identity"),
+                session=session,
+                member_account=member_context.get("member_account"),
+                message=message,
+            )
+
+            return result
+
+        except Exception as exc:
+
+            print("=" * 70)
+            print("AI AGENT ERROR")
+            print(exc)
+            print("=" * 70)
+
+            return {
+                "message": (
+                    "I'm having trouble connecting to the "
+                    "Warima AI Agent right now. Please try again."
+                ),
+                "type": "text",
+                "context_update": {
+                    "agent": agent_context,
+                },
+            }
+
+    # ============================================================
+    # HELPERS
+    # ============================================================
+
+    def _deactivate_agent(
+        self,
+        context: Dict[str, Any],
+    ):
+
+        context["agent"] = {
+            **context.get("agent", {}),
+            "active": False,
+            "step": None,
+        }
+
+    def _normalise(self, text: str) -> str:
+
+        text = text.lower().strip()
+
+        text = re.sub(
+            r"[^\w\s']",
+            "",
+            text,
+        )
+
+        text = re.sub(
+            r"\s+",
+            " ",
+            text,
+        )
+
+        return text
+
+    def _finalise(
+        self,
+        result: Optional[Dict[str, Any]],
+        session_context: Dict[str, Any],
+    ) -> Dict[str, Any]:
+
+        if result is None:
+
+            result = {
+                "message": (
+                    "I didn't understand that.\n\n"
+                    "Type *Help* to see what I can do."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        #----------------------------------------------------------------------------
+        # Dataclass result
+        #----------------------------------------------------------------------------
+
+        if is_dataclass(result):
+
+            result = asdict(result)
+
+        #-----------------------------------------------------------------------------
+        # Normal dictionary result
+        #-----------------------------------------------------------------------------
+
+        if not isinstance(result, dict):
+
+            return {
+                "message": str(result),
+                "type": "text",
+                "context_update": {},
+            }
+
+        context_update = result.get(
+            "context_update",
+            {},
+        )
+
+        if context_update:
+
+            for key, value in context_update.items():
+
+                if isinstance(value, dict) and isinstance(
+                    session_context.get(key),
+                    dict,
+                ):
+                    session_context[key].update(value)
+
+                else:
+                    session_context[key] = value
+
+        return result

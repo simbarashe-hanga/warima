@@ -45,7 +45,7 @@ async def chat(
         model="gemini-2.5-flash",
         history=gemini_history,
         config={
-            "system_instruction": SYSTEM_PROMPT,
+            "system_instruction": WARIMA_SYSTEM_PROMPT,
             "temperature": 0.6,
         },
     )

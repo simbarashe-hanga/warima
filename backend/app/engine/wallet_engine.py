@@ -42,10 +42,12 @@ class WalletEngine:
 
         return self._token_service
 
-    async def process(
+    async def handle(
         self,
-        session: Dict[str, Any],
         message: str,
+        intent: Dict[str, Any],
+        session,
+        member_context: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
         Process a wallet conversation.
@@ -83,9 +85,9 @@ class WalletEngine:
 
     async def _handle_amount_input(
         self,
-        session: Dict[str, Any],
-        message: str,
-    ) -> Dict[str, Any]:
+        session,
+        message,
+    ):
         """
         Handle contribution amount input.
 
@@ -95,7 +97,7 @@ class WalletEngine:
         try:
             amount = float(message.strip())
 
-        except ValueError:
+        except (ValueError, AttributeError):
             return {
                 "message": "Please enter a valid number.",
                 "type": "text",
@@ -119,9 +121,9 @@ class WalletEngine:
                 },
             }
 
-        SessionManager.update_wallet_context(
+        SessionManager.set_wallet_amount(
             session,
-            {"amount": amount},
+            amount,
         )
 
         SessionManager.set_wallet_step(
@@ -150,9 +152,9 @@ class WalletEngine:
 
     async def _handle_confirmation(
         self,
-        session: Dict[str, Any],
-        message: str,
-    ) -> Dict[str, Any]:
+        session,
+        message,
+    ):
         """
         Handle contribution confirmation.
 
@@ -161,10 +163,7 @@ class WalletEngine:
         is connected.
         """
 
-        context = SessionManager.context(session)
-
-        wallet_context = context.get("wallet") or {}
-        amount = wallet_context.get("amount")
+        amount = SessionManager.wallet_amount(session)
 
         if amount is None:
             SessionManager.finish_wallet(session)
@@ -236,9 +235,9 @@ class WalletEngine:
 
     def _handle_chat_mode(
         self,
-        session: Dict[str, Any],
-        message: str,
-    ) -> Dict[str, Any]:
+        session,
+        message,
+    ):
         """
         Handle general wallet conversation.
         """
@@ -263,8 +262,8 @@ class WalletEngine:
 
     def _start_wallet_flow(
         self,
-        session: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        session,
+    ):
         """
         Start the wallet conversation.
         """

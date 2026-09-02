@@ -40,3 +40,22 @@ class MemberAccountStatus(str, Enum):
     ACTIVE = "ACTIVE"
     SUSPENDED = "SUSPENDED"
     CLOSED = "CLOSED"
+
+class StokvelStatus(str, Enum):
+    PENDING = "PENDING"
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    CLOSED = "CLOSED"
+
+class MembershipStatus(str, Enum):
+    PENDING = "PENDING"
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    LEFT = "LEFT"
+
+class MembershipRole(str, Enum):
+    OWNER = "OWNER"
+    ADMIN = "ADMIN"
+    TREASURER = "TREASURER"
+    SECRETARY = "SECRETARY"
+    MEMBER = "MEMBER"

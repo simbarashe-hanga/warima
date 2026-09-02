@@ -1,15 +1,14 @@
-from dotenv import load_dotenv
+# backend/app/workers/worker.py
 
-import traceback
 import asyncio
+import traceback
+
+from dotenv import load_dotenv
 
 from app.db.session import SessionLocal
 
 from app.services.identity.user_service import UserService
 from app.services.identity.session_manager import SessionManager
-from app.services.identity.onboarding_service import OnboardingService
-from app.services.ai.context_builder import ContextBuilder
-from app.services.ai.llm_service import chat
 
 from app.services.messaging.queue_service import (
     get_and_mark_processing,
@@ -19,37 +18,62 @@ from app.services.messaging.queue_service import (
 
 from app.services.messaging.conversation_service import (
     save_message,
-    get_recent_messages,
 )
 
-from app.services.messaging.messaging_service import send_message
+from app.services.messaging.messaging_service import (
+    send_message,
+)
 
 from app.engine.intent import detect_intent
-from app.engine.executor import handle_intent
+from app.engine.flow_router import FlowRouter
+from app.engine.wallet_engine import WalletEngine
+
+from app.services.ai.agent_service import AgentService
 
 
 load_dotenv()
 
 
+# ============================================================================
+# MESSAGE PROCESSING
+# ============================================================================
+
 async def process_message(db, event):
+    """
+    Process one queued WhatsApp message.
+
+    Responsibilities:
+        1. Authenticate the WhatsApp user
+        2. Initialize session context
+        3. Detect intent
+        4. Route through FlowRouter
+        5. Apply context updates
+        6. Save conversation messages
+        7. Commit database changes
+        8. Send WhatsApp response
+
+    Business logic belongs to engines/services.
+    """
+
     message = event.payload
 
-    #
-    # WhatsApp sender
-    #
-    wa_id = message["user_id"]
-    raw_text = message.get("text", "")
-    intent_text = raw_text.lower().strip()
+    # ------------------------------------------------------------------------
+    # EXTRACT MESSAGE
+    # ------------------------------------------------------------------------
 
+    wa_id = message["user_id"]
+    raw_text = message.get("text", "").strip()
 
     print("=" * 80)
     print("EVENT:", message)
     print("=" * 80)
 
-    #
-    # Authenticate User
-    #
     user_service = UserService(db)
+
+    # ------------------------------------------------------------------------
+    # AUTHENTICATE / LOAD USER
+    # ------------------------------------------------------------------------
+
     auth = user_service.authenticate_whatsapp(wa_id)
 
     user = auth.user
@@ -60,18 +84,25 @@ async def process_message(db, event):
     print("USER:", user.id)
     print("NEW USER:", auth.is_new)
 
-    #
-    # Initialize session context
-    #
-    SessionManager.initialize(session)
+    # ------------------------------------------------------------------------
+    # CREATE FLOW ROUTER
+    # ------------------------------------------------------------------------
+
+    agent_service = AgentService()
+    wallet_engine = WalletEngine()
+
+    flow_router = FlowRouter(
+        wallet_engine=wallet_engine,
+        agent=agent_service,
+    )
 
     try:
 
-        #################################################################
-        # Save incoming message
-        #################################################################
+        # ====================================================================
+        # SAVE USER MESSAGE
+        # ====================================================================
 
-        user_message = save_message(
+        save_message(
             db,
             wa_id,
             "user",
@@ -79,12 +110,25 @@ async def process_message(db, event):
         )
 
         db.flush()
-    
-        ################################################################
-        # Onboarding
-        ################################################################
+
+        # ====================================================================
+        # ONBOARDING
+        # ====================================================================
 
         if not SessionManager.profile_completed(session):
+
+            print("FLOW: onboarding")
+            print("MESSAGE:", raw_text)
+
+            # ---------------------------------------------------------------
+            # Import here so normal processing does not unnecessarily load
+            # onboarding dependencies.
+            # ---------------------------------------------------------------
+
+            from app.services.identity.onboarding_service import (
+                OnboardingService,
+            )
+
             onboarding = OnboardingService(db)
 
             result = onboarding.process(
@@ -94,63 +138,127 @@ async def process_message(db, event):
                 message=raw_text,
             )
 
-            response = result.message
+            # ---------------------------------------------------------------
+            # OnboardingService normally returns an object with .message.
+            # Support dict/string responses as well.
+            # ---------------------------------------------------------------
 
-        #################################################################
-        # Normal Processing
-        #################################################################
+            if isinstance(result, dict):
+
+                response = result.get(
+                    "message",
+                    "",
+                )
+
+                context_update = result.get(
+                    "context_update",
+                    {},
+                )
+
+                if context_update:
+                    SessionManager.update_context(
+                        session,
+                        context_update,
+                    )
+
+            elif hasattr(result, "message"):
+
+                response = result.message
+
+            else:
+
+                response = str(result)
+
+        # ====================================================================
+        # NORMAL PROCESSING
+        # ====================================================================
 
         else:
+
+            # ---------------------------------------------------------------
+            # INTENT DETECTION
+            # ---------------------------------------------------------------
+
             intent = detect_intent(
-                intent_text,
+                raw_text,
                 session,
             )
 
             print("INTENT:", intent)
 
+            # ---------------------------------------------------------------
+            # ROUTER
             #
-            # Structured Intent
+            # FlowRouter is now responsible for deciding which engine
+            # handles the message.
             #
+            # IMPORTANT:
+            # intent MUST be passed here.
+            # ---------------------------------------------------------------
 
-            if intent["intent"] != "unknown":
-                response = handle_intent(
-                    intent_data=intent,
-                    user=user,
-                    session=session,
-                    member_account=member_account,
-                    db=db,
+            print("FLOW: router")
+            print("MESSAGE:", raw_text)
+
+            result = await flow_router.route(
+                message=raw_text,
+                intent=intent,
+                session=session,
+                member_context={
+                    "user": user,
+                    "identity": identity,
+                    "member_account": member_account,
+                },
+            )
+
+            print("FLOW ROUTER RESULT:", result)
+
+            # ---------------------------------------------------------------
+            # NORMALIZE ROUTER RESPONSE
+            # ---------------------------------------------------------------
+
+            if isinstance(result, dict):
+
+                response = result.get(
+                    "message",
+                    "",
                 )
 
-            #
-            # AI Conversation
-            #
+                context_update = result.get(
+                    "context_update",
+                    {},
+                )
+
+                # -----------------------------------------------------------
+                # Apply context returned by the engine.
+                #
+                # SessionManager owns session.context.
+                # -----------------------------------------------------------
+
+                if context_update:
+
+                    SessionManager.update_context(
+                        session,
+                        context_update,
+                    )
 
             else:
-                print("ROUTING TO LLM")
 
-                system_prompt = await ContextBuilder.build_system_prompt(
-                    user=user,
-                    identity=identity,
-                    session=session,
-                    member_account=member_account,
-                )
+                response = str(result)
 
-                history = get_recent_messages(
-                    db,
-                    wa_id,
-                    limit=10,
-                    exclude_id=user_message.id,
-                )
+        # ====================================================================
+        # SAFETY
+        # ====================================================================
 
-                response = await chat(
-                    user_message=raw_text,
-                    history=history,
-                    system_prompt=system_prompt,
-                )
+        if not response:
 
-        ############################################################################
-        # Save assistant response
-        ############################################################################
+            response = (
+                "Sorry, I couldn't process that request.\n\n"
+                "Type *Help* to see what I can do."
+            )
+
+        # ====================================================================
+        # SAVE ASSISTANT RESPONSE
+        # ====================================================================
 
         save_message(
             db,
@@ -159,16 +267,22 @@ async def process_message(db, event):
             response,
         )
 
-        ##########################################################################
-        # Commit everything once
-        ##########################################################################
-        
+        # ====================================================================
+        # DEBUG SESSION BEFORE COMMIT
+        # ====================================================================
+
         print("=" * 60)
         print("SESSION CONTEXT BEFORE COMMIT")
         print(session.context)
         print("=" * 60)
-        
+
+        # ====================================================================
+        # COMMIT
+        # ====================================================================
+
         db.commit()
+
+        # Refresh after commit so we are looking at persisted state.
 
         db.refresh(session)
 
@@ -177,55 +291,144 @@ async def process_message(db, event):
         print(session.context)
         print("=" * 60)
 
-        ##########################################################################
-        # Send WhatsApp message
-        #########################################################################
+        # ====================================================================
+        # SEND WHATSAPP MESSAGE
+        # ====================================================================
 
         await send_message(
             wa_id,
             response,
         )
 
+        print("=" * 60)
+        print("MESSAGE SENT")
+        print(response)
+        print("=" * 60)
+
     except Exception:
+
+        # ---------------------------------------------------------------
+        # Roll back all database changes associated with this message.
+        # ---------------------------------------------------------------
+
         db.rollback()
+
         raise
 
+
+# ============================================================================
+# WORKER LOOP
+# ============================================================================
+
 async def worker_loop():
+    """
+    Continuously process queued WhatsApp events.
+    """
+
     print("Worker started...")
+
     while True:
+
         db = None
+
         try:
+
+            # ---------------------------------------------------------------
+            # Open a fresh DB session for each polling cycle.
+            # ---------------------------------------------------------------
+
             db = SessionLocal()
+
+            # ---------------------------------------------------------------
+            # Retrieve the next queued event and mark it as processing.
+            # ---------------------------------------------------------------
+
             event = get_and_mark_processing(db)
+
             if event:
+
                 try:
+
+                    # -------------------------------------------------------
+                    # Process message
+                    # -------------------------------------------------------
+
                     await process_message(
                         db,
                         event,
                     )
+
+                    # -------------------------------------------------------
+                    # Mark queue event complete
+                    # -------------------------------------------------------
 
                     mark_done(
                         db,
                         event,
                     )
 
+                    # -------------------------------------------------------
+                    # Commit queue status if mark_done does not commit itself.
+                    # -------------------------------------------------------
+
+                    db.commit()
+
                 except Exception as e:
+
                     print("Worker error:", e)
-                    mark_failed(
-                        db,
-                        event,
-                        traceback.format_exc(),
-                    )
+                    traceback.print_exc()
+
+                    # -------------------------------------------------------
+                    # Roll back any failed message transaction.
+                    # -------------------------------------------------------
+
+                    db.rollback()
+
+                    # -------------------------------------------------------
+                    # Mark event failed.
+                    # -------------------------------------------------------
+
+                    try:
+
+                        mark_failed(
+                            db,
+                            event,
+                            traceback.format_exc(),
+                        )
+
+                        db.commit()
+
+                    except Exception:
+
+                        db.rollback()
+
+                        print(
+                            "Failed to mark event as failed:"
+                        )
+
+                        traceback.print_exc()
 
         except Exception as e:
+
             print("Database unavailable:", e)
+            traceback.print_exc()
 
         finally:
+
             if db:
+
                 db.close()
+
+        # --------------------------------------------------------------------
+        # Prevent a tight polling loop.
+        # --------------------------------------------------------------------
 
         await asyncio.sleep(1)
 
+
+# ============================================================================
+# ENTRY POINT
+# ============================================================================
 
 if __name__ == "__main__":
     asyncio.run(worker_loop())

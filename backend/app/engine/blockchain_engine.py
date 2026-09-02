@@ -100,11 +100,12 @@ class BlockchainEngine:
     # ROUTING
     # ------------------------------------------------------------------
 
-    async def process(
+    async def handle(
         self,
-        session: Dict[str, Any],
         message: str,
-        flow: str,
+        intent: Dict[str, Any],
+        session_context: Dict[str, Any],
+        member_context: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
         Process blockchain-related messages.

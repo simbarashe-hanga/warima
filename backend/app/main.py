@@ -3,7 +3,6 @@
 from fastapi import FastAPI
 
 from app.api.routes import webhook, payments
-from app.engine.flow_router import FlowRouter
 
 #------------------------------------------------------------------------
 # Application
@@ -13,11 +12,6 @@ app = FastAPI(
     title="Warima",
     version="1.0.1"
 )
-
-#-------------------------------------------------------------------------
-# Flow Router
-#-------------------------------------------------------------------------
-flow_router = FlowRouter()
 
 
 #--------------------------------------------------------------------------

@@ -80,3 +80,9 @@ class MemberAccount(Base):
         "User",
         back_populates="member_accounts",
     )
+
+    memberships = relationship(
+        "Membership",
+        back_populates="member_account",
+        cascade="all, delete-orphan",
+    )

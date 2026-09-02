@@ -5,12 +5,19 @@ class StokvelEngine:
     """Handles stokvel-related operations"""
     
     @classmethod
-    def process(cls, session: Dict, message: str) -> Dict:
+    async def handle(
+        self,
+        message: str,
+        intent: Dict[str, Any],
+        session_context: Dict[str, Any],
+        member_context: Dict[str, Any],
+    ) -> Dict[str, Any]:
+
         """Process stokvel commands"""
         message_lower = message.lower().strip()
         
         # Get stokvel context
-        context = session.get("context", {})
+        context = session_context.get("context", {})
         stokvel_context = context.get("stokvel", {})
         
         # Check if in stokvel flow
