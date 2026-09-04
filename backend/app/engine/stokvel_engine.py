@@ -1,177 +1,688 @@
-from typing import Dict, Optional, Any
+from typing import Dict, Any
+
 from app.services.identity.session_manager import SessionManager
+from app.services.stokvel.stokvel_service import StokvelService
+from app.models.enums import MembershipRole
+
 
 class StokvelEngine:
-    """Handles stokvel-related operations"""
-    
-    @classmethod
+    """
+    Handles stokvel-related conversational flows.
+
+    Supported flows:
+
+    stokvel.create
+        Start creating a stokvel and collect its name.
+
+    stokvel.join
+        Join an existing stokvel using its join code.
+
+    stokvel.view
+        Display the member's active stokvels.
+
+    Transaction ownership remains with the worker.
+    """
+
     async def handle(
         self,
         message: str,
         intent: Dict[str, Any],
-        session_context: Dict[str, Any],
+        session,
         member_context: Dict[str, Any],
+        db=None,
     ) -> Dict[str, Any]:
 
-        """Process stokvel commands"""
-        message_lower = message.lower().strip()
-        
-        # Get stokvel context
-        context = session_context.get("context", {})
-        stokvel_context = context.get("stokvel", {})
-        
-        # Check if in stokvel flow
-        if stokvel_context.get("active"):
-            return cls._handle_stokvel_flow(session, message)
-        
-        # Handle stokvel commands
-        if message_lower in ["stokvel", "group", "savings"]:
-            return cls._start_stokvel_flow(session)
-        
-        elif message_lower == "members":
-            return cls._list_members(session)
-        
-        elif message_lower == "vote":
-            return cls._start_vote(session)
-        
-        elif message_lower.startswith("vote yes") or message_lower.startswith("vote no"):
-            return cls._handle_vote(session, message)
-        
-        elif message_lower == "proposals":
-            return cls._list_proposals(session)
-        
-        elif message_lower == "stokvel help":
-            return cls._get_help()
-        
-        return {
-            "message": cls._get_help(),
-            "context_update": {}
-        }
-    
-    @classmethod
-    def _start_stokvel_flow(cls, session: Dict) -> Dict:
-        """Start the stokvel flow"""
-        SessionManager.update_context(session, {
-            "stokvel": {
-                "active": True,
-                "step": "menu"
-            }
-        })
-        
-        return {
-            "message": cls._get_menu(),
-            "context_update": {"stokvel": {"active": True}}
-        }
-    
-    @classmethod
-    def _handle_stokvel_flow(cls, session: Dict, message: str) -> Dict:
-        """Handle active stokvel flow"""
-        message_lower = message.lower().strip()
-        
-        if message_lower in ["back", "exit", "cancel"]:
-            SessionManager.update_context(session, {
-                "stokvel": {"active": False}
-            })
+        if db is None:
             return {
-                "message": "Exited stokvel menu. Type STOKVEL to return.",
-                "context_update": {"stokvel": {"active": False}}
+                "message": "I’m unable to access your stokvel account right now.",
+                "type": "text",
+                "context_update": {},
             }
-        
-        if message_lower == "members":
-            return cls._list_members(session)
-        
-        if message_lower == "vote":
-            return cls._start_vote(session)
-        
-        if message_lower == "proposals":
-            return cls._list_proposals(session)
-        
-        return {
-            "message": cls._get_menu(),
-            "context_update": {}
-        }
-    
-    @classmethod
-    def _list_members(cls, session: Dict) -> Dict:
-        """List stokvel members"""
-        # Placeholder - implement actual member listing
-        return {
-            "message": "*Stokvel Members*\n\n"
-                       "1. Admin (Admin)\n"
-                       "2. Member 1\n"
-                       "3. Member 2\n"
-                       "4. Member 3\n\n"
-                       "Total: 4 members\n"
-                       "Type 'STOKVEL' to return to menu.",
-            "context_update": {}
-        }
-    
-    @classmethod
-    def _start_vote(cls, session: Dict) -> Dict:
-        """Start a voting session"""
-        return {
-            "message": "*Active Proposals*\n\n"
-                       "1. Buy 2 Large White pigs (R16,000)\n"
-                       "   Ends: 3 days\n\n"
-                       "2. Sell pig #4 (R8,500)\n"
-                       "   Ends: 5 days\n\n"
-                       "Reply: 'VOTE YES 1' or 'VOTE NO 1'\n"
-                       "Type 'STOKVEL' to return to menu.",
-            "context_update": {}
-        }
-    
-    @classmethod
-    def _handle_vote(cls, session: Dict, message: str) -> Dict:
-        """Handle voting"""
-        parts = message.lower().split()
-        if len(parts) < 3:
+
+        member_account = member_context.get("member_account")
+
+        if member_account is None:
             return {
-                "message": "Please specify: VOTE YES 1 or VOTE NO 1",
-                "context_update": {}
+                "message": "Your member account could not be found.",
+                "type": "text",
+                "context_update": {},
             }
-        
-        vote = parts[1]  # yes or no
-        proposal_id = parts[2]  # proposal number
-        
+
+        service = StokvelService(db)
+
+        step = SessionManager.stokvel_step(session)
+        intent_name = intent.get("intent")
+
+        # -------------------------------------------------------------
+        # Continue an active stokvel flow
+        # -------------------------------------------------------------
+
+        if SessionManager.stokvel_active(session):
+
+            if step == "awaiting_name":
+                return self._handle_create_name(
+                    message=message,
+                    session=session,
+                    member_account=member_account,
+                    service=service,
+                )
+
+            if step == "awaiting_join_code":
+                return self._handle_join_code(
+                    message=message,
+                    session=session,
+                    member_account=member_account,
+                    service=service,
+                )
+
+            if step == "awaiting_selection":
+                return self._handle_selection(
+                    message=message,
+                    session=session,
+                    member_account=member_account,
+                    service=service,
+                )
+
+            if step == "menu":
+                return self._handle_menu(
+                    message=message,
+                    session=session,
+                    member_account=member_account,
+                    service=service,
+                )
+
+
+        #-------------------------------------------------------------
+        # Create
+        #-------------------------------------------------------------
+
+        if intent_name == "stokvel.create":
+
+            SessionManager.start_stokvel(
+                session,
+                step="awaiting_name",
+            )
+
+            return {
+                "message": (
+                    "Sure. What would you like to name "
+                    "your stokvel?"
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        #-------------------------------------------------------------
+        # Join
+        #-------------------------------------------------------------
+
+        if intent_name == "stokvel.join":
+
+            SessionManager.start_stokvel(
+                sesson,
+                step="awaiting_join_code",
+            )
+
+            return {
+                "message": (
+                    "Sure. Please enter the stokvel "
+                    "join code."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        #--------------------------------------------------------------
+        # View / list
+        #--------------------------------------------------------------
+
+        if intent_name == "stokvel.view":
+
+            return self._list_stokvels(
+                session=session,
+                member_account=member_account,
+                service=service,
+            )
+
         return {
-            "message": f"Your vote has been recorded!\n"
-                       f"Proposal: #{proposal_id}\n"
-                       f"Vote: {vote.upper()}\n\n"
-                       "Your vote has been recorded on the blockchain.",
-            "context_update": {}
+            "message": (
+                "I can help you create a stokvel. "
+                "join a stokvel, or view your stokvel."
+            ),
+            "type": "text",
+            "context_update": {},
         }
-    
-    @classmethod
-    def _list_proposals(cls, session: Dict) -> Dict:
-        """List all proposals"""
+
+    # -----------------------------------------------------------------
+    # Create
+    # -----------------------------------------------------------------
+
+    def _handle_create_name(
+        self,
+        message,
+        session,
+        member_account,
+        service,
+    ):
+
+        name = message.strip()
+
+        if not name:
+            return {
+                "message": "Please enter a name for your stokvel.",
+                "context_update": {},
+            }
+
+        if len(name) < 2:
+            return {
+                "message": (
+                    "Please enter a stokvel name "
+                    "with at least 2 characters."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        if len(name) > 120:
+            return {
+                "message": "That name is too long. Please keep it under 120 characters.",
+                "type": "text",
+                "context_update": {},
+            }
+
+        stokvel = service.create_stokvel(name)
+
+        membership = service.add_member(
+            member_account_id=member_account.id,
+            stokvel_id=stokvel.id,
+            role=MembershipRole.OWNER,
+        )
+
+        service.active_stokvel(stokvel_id)
+
+        SessionManager.finish_stokvel(session)
+
         return {
-            "message": "*All Proposals*\n\n"
-                       "1. Buy 2 Large White pigs (R16,000)\n"
-                       "   Status: Active\n"
-                       "   Votes: 3 YES, 1 NO\n\n"
-                       "2. Sell pig #4 (R8,500)\n"
-                       "   Status: Active\n"
-                       "   Votes: 2 YES, 2 NO\n\n"
-                       "Type 'VOTE' to vote on proposals.",
-            "context_update": {}
+            "message": (
+                f"Your stokvel '{stokvel.name}' has been created successfully.\n\n"
+                f"Join code: {stokvel.join_code}\n\n"
+                "Share this code with the people you want to invite."
+            ),
+            "type": "text",
+            "context_update": {
+                "stokvel": {
+                    "selected_stokvel_id": str(stokvel.id),
+                },
+            },
         }
-    
-    @classmethod
-    def _get_menu(cls) -> str:
-        return "*Stokvel Menu*\n\n" \
-               "• MEMBERS - View all members\n" \
-               "• VOTE - Vote on proposals\n" \
-               "• PROPOSALS - List all proposals\n" \
-               "• BACK - Exit stokvel menu\n\n" \
-               "Type your choice or 'STOKVEL HELP' for more info."
-    
-    @classmethod
-    def _get_help(cls) -> str:
-        return "*Stokvel Commands*\n\n" \
-               "• STOKVEL - Enter stokvel menu\n" \
-               "• MEMBERS - List all members\n" \
-               "• VOTE - Vote on proposals\n" \
-               "• PROPOSALS - List all proposals\n" \
-               "• VOTE YES 1 - Vote yes on proposal 1\n" \
-               "• VOTE NO 1 - Vote no on proposal 1\n\n" \
-               "Your stokvel is managed on the blockchain!"
+
+    # -----------------------------------------------------------------
+    # Join
+    # -----------------------------------------------------------------
+
+    def _handle_join_code(
+        self,
+        message,
+        session,
+        member_account,
+        service,
+    ):
+
+        code = message.strip().upper()
+
+        stokvel = service.get_stokvel_by_join_code(code)
+
+        if stokvel is None:
+            return {
+                "message": (
+                    "I couldn't find a stokvel with that "
+                    "join code. Please check the code and try again."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        if stokvel.status.value != "ACTIVE":
+            return {
+                "message": (
+                    "That stokvel is not currently active."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        existing = service.get_membership(
+            member_account.id,
+            stokvel.id,
+        )
+
+        if existing:
+            SessionManager.set_selected_stokvel(
+                session,
+                stokvel.id,
+            )
+            SessionManager.finish_stokvel(session)
+
+            return {
+                "message": (
+                    f"You're already a member of '{stokvel.name}'."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        membership = service.add_member(
+            member_account_id=member_account.id,
+            stokvel_id=stokvel.id,
+            role=MembershipRole.MEMBER,
+        )
+
+        SessionManager.set_selected_stokvel(
+            session,
+            stokvel.id,
+        )
+
+        SessionManager.finish_stokvel(session)
+
+        return {
+            "message": (
+                f"You've successfully joined '{stokvel.name}'."
+                f"Join code: *{stokvel.join_code}*"
+            ),
+            "type": "text",
+            "context_update": {},
+        }
+
+    # -----------------------------------------------------------------
+    # View / list
+    # -----------------------------------------------------------------
+
+    def _list_stokvels(
+        self,
+        session,
+        member_account,
+        service,
+    ):
+
+        stokvels = service.get_member_stokvels(
+            member_account.id
+        )
+
+        if not stokvels:
+
+            SessionManager.finish_stokvel(session)
+
+            return {
+                "message": (
+                    "You aren't a member of any stokvels yet.\n\n"
+                    "You can *create* a stokvel or *join* one using a join code."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        options = []
+
+        lines = ["*Your stokvels:*"]
+
+        for index, stokvel in enumerate(stokvels, start=1):
+
+            options.append(
+                {
+                    "index": index,
+                    "stokvel_id": str(stokvel.id),
+                }
+            )
+
+            lines.append(
+                f"{index}. *{stokvel.name}*)"
+            )
+
+        lines.extend(
+            [
+                "",
+                "Reply with the number of the stokvel "
+                "you'd like to manage.",
+            ]
+        )
+
+        SessionManager.start_stokvel(
+            session,
+            step="awaiting_selection",
+            options=options,
+        )
+
+        return {
+            "message": "\n".join(lines),
+            "type": "text",
+            "context_update": {},
+        }
+
+    #=========================================================================
+    # Selection
+    #=========================================================================
+
+    def _handle_selection(
+        self,
+        message,
+        session,
+        member_account,
+        service,
+    ):
+        text = message.strip()
+
+        if not text.isdigit():
+            return {
+                "message": (
+                    "Please reply with the number of "
+                    "the stokvel you'd like to manage."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        index = int(text)
+
+        options = SessionManager.stokvel_options(session)
+
+        selected = next(
+            (
+                option
+                for option in options
+                if option.get("index") == index
+            ),
+            None,
+        )
+
+        if selected is None:
+            return {
+                "message": (
+                    "That isn't a valid selection. "
+                    "Please choose one of the numbers listed."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        stokvel_id = selected["stokvel_id"]
+
+        stokvel = service.get_stokvel(stokvel_id)
+
+        if stokvel is None:
+            SessionManager.finish_stokvel(session)
+
+            return {
+                "message": (
+                    "I couldn't find that stokvel. "
+                    "Please try again."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        membership = service.get_membership(
+            member_account.id,
+            stokvel.id,
+        )
+
+        if membership is None:
+            SessionManager.finish_stokvel(session)
+
+            return {
+                "message": (
+                    "You are no longer an active member "
+                    "of that stokvel."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        SessionManager.set_selected_stokvel(
+            session,
+            stokvel.id,
+        )
+
+        SessionManager.set_stokvel_step(
+            session,
+            "menu",
+        )
+
+        return self._stokvel_menu(stokvel)
+
+    #========================================================================
+    # Menu
+    #========================================================================
+
+    def _stokvel_menu(self, stokvel):
+
+        return {
+            "message": (
+                f"*{stokvel.name}*\n\n"
+                "What would you like to do?\n\n"
+                "1. View details\n"
+                "2. Contribute\n"
+                "3. Members\n"
+                "4. Back"
+            ),
+            "type": "text",
+            "context_update": {},
+        }
+
+    def _handle_menu(
+        self,
+        message,
+        session,
+        member_account,
+        service,
+    ):
+        selected_id = SessionManager.selected_stokvel_id(
+            session
+        )
+
+        if not selected_id:
+            SessionManager.finish_stokvel(session)
+
+            return {
+                "message": (
+                    "No stokvel is currently selected. "
+                    "Please type *Stokvels* to choose one."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        stokvel = service.get_stokvel(selected_id)
+
+        if stokvel is None:
+            SessionManager.finish_stokvel(session)
+
+            return {
+                "message": (
+                    "That stokvel could not be found."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        choice = message.strip()
+
+        if choice == "1":
+            return self._view_details(
+                session=session,
+                stokvel=stokvel,
+            )
+
+        if choice == "2":
+            return self._start_contribution(
+                session=session,
+                stokvel=stokvel,
+            )
+
+        if choice == "3":
+            return self._view_members(
+                stokvel=stokvel,
+                service=service,
+            )
+
+        if choice == "4":
+            SessionManager.finish_stokvel(session)
+
+            return {
+                "message": (
+                    "Okay. You're back at your stokvel list."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        return {
+            "message": (
+                "Please choose:\n\n"
+                "1. View details\n"
+                "2. Contribution\n"
+                "3. Members\n"
+                "4. Back"
+            ),
+            "type": "text",
+        }
+
+    #=============================================================================
+    # Details
+    #=============================================================================
+
+    def _view_details(
+        self,
+        stokvel,
+        member_account,
+        service,
+    ):
+
+        membership = service.get_membership(
+            member_account.id,
+            stokvel.id,
+        )
+
+        role = (
+            membership.role.value
+            if membership
+            else "MEMBER"
+        )
+
+        description = (
+            stokvel.description
+            or "No description provided."
+        )
+
+        return {
+            "message": (
+                f"*{stokvel.name}*\n\n"
+                f"Status: {stokvel.status.value}\n"
+                f"Join code: *{stokvel.join_code}*\n"
+                f"Your role: {role}\n\n"
+                f"{description}\n\n"
+                "Reply *2* to contribute, "
+                "*3* to view members, or "
+                "*4* to go back."
+            ),
+            "type": "text",
+            "context_update": {},
+        }
+
+    #=============================================================================
+    # Members
+    #=============================================================================
+
+    def _view_members(
+        self,
+        stokvel,
+        service,
+    ):
+
+        memberships = service.get_stokvel_members(
+            stokvel.id
+        )
+
+        if not memberships:
+            return {
+                "message": (
+                    f"*{stokvel.name}* currently has "
+                    "no active members."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
+
+        lines = [
+            f"*{stokvel.name} members:*",
+            "",
+        ]
+
+        for index, membership in enumerate(
+            memberships,
+            start=1,
+        ):
+
+            user = membership.member_account.user
+
+            name = (
+                user.display_name
+                or " ".join(
+                    value
+                    for value in [
+                        user.first_name,
+                        user.last_name,
+                    ]
+                    if value
+                )
+                or "Member"
+            )
+
+            role = membership.role.value
+
+            lines.append(
+                f"{index}. {name} - {role}"
+            )
+
+        lines.extend(
+            [
+                "",
+                "Reply *4* to go back.",
+            ]
+        )
+
+        return {
+            "message": "\n".join(lines),
+            "type": "text",
+            "context_update": {},
+        }
+
+    #=============================================================================
+    # Contribution Handoff
+    #=============================================================================
+
+    def _start_contribution(
+        self,
+        session,
+        stokvel,
+    ):
+
+        # The selected stokvel remains stored in session
+        # WalletEngine will consume selected_stokvel_id.
+        SessionManager.clear_other_flows(
+            session,
+            active_flow="wallet",
+        )
+
+        SessionManager.start_wallet(
+            session,
+            step="awaiting_amount",
+        )
+
+        return {
+            "message": (
+                f"How much would you like to contribute "
+                f"to *{stokvel.name}*?"
+            ),
+            "type": "text",
+            "context_update": {},
+        }

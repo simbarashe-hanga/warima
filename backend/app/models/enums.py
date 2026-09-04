@@ -59,3 +59,25 @@ class MembershipRole(str, Enum):
     TREASURER = "TREASURER"
     SECRETARY = "SECRETARY"
     MEMBER = "MEMBER"
+
+class WalletStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    CLOSED = "CLOSED"
+
+class WalletTransactionType(str, Enum):
+    CONTRIBUTION = "CONTRIBUTION"
+    DEPOSIT = "DEPOSIT"
+    WITHDRAWAL = "WITHDRAWAL"
+    TRANSFER = "TRANSFER"
+
+class WalletTransactionStatus(str, Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+class WalletLedgerEntryType(str, Enum):
+    CREDIT = "CREDIT"
+    DEBIT = "DEBIT"

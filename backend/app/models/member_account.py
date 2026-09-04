@@ -86,3 +86,10 @@ class MemberAccount(Base):
         back_populates="member_account",
         cascade="all, delete-orphan",
     )
+
+    wallet = relationship(
+        "Wallet",
+        back_populates="member_account",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )

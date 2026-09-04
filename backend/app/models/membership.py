@@ -5,6 +5,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    UniqueConstraint,
 )
 
 from sqlalchemy.dialects.postgresql import UUID
@@ -19,8 +20,17 @@ from app.models.enums import (
 )
 
 
+
 class Membership(Base):
     __tablename__ = "memberships"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "member_account_id",
+            "stokvel_id",
+            name="uq_membership_member_stokvel",
+        ),
+    )
 
     id = Column(
         UUID(as_uuid=True),

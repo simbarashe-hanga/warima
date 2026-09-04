@@ -231,9 +231,6 @@ def detect_intent(
         "my wallet",
         "show wallet",
         "open wallet",
-        "wallet balance",
-        "balance",
-        "my balance",
         "wallet details",
         "wallet information",
         "wallet status",
@@ -307,13 +304,17 @@ def detect_intent(
         )
 
     # -------------------------------------------------------------------------
-    # Create / join stokvel
+    # Create stokvel
     # -------------------------------------------------------------------------
 
     if text in {
         "create stokvel",
+        "create a stokvel",
         "start stokvel",
+        "start a stokvel",
         "new stokvel",
+        "i want to create a stokvel",
+        "i want to start a stokvel",
     }:
         return _intent(
             "stokvel.create",
@@ -321,9 +322,19 @@ def detect_intent(
             "create",
         )
 
+    #----------------------------------------------------------------------------
+    # Join stokvel
+    #----------------------------------------------------------------------------
+
     if text in {
+        "join",
+        "how do i join",
+        "i want to join",
+        "i want to join a stokvel",
         "join stokvel",
         "join a stokvel",
+        "how do i join a stokvel",
+        "how can i join a stokvel",
     }:
         return _intent(
             "stokvel.join",
@@ -352,6 +363,23 @@ def detect_intent(
             "portfolio",
             "view",
         )
+
+    #==========================================================================
+    # BALANCE
+    #==========================================================================
+
+    if text in {
+        "balance",
+        "my balance",
+        "check balance",
+        "wallet balance",
+    }:
+        return {
+            "intent": "wallet.balance",
+            "domain": "wallet",
+            "action": "balance",
+            "parameters": {},
+        }
 
     # =========================================================================
     # PIG / AGRICULTURAL INVESTMENT

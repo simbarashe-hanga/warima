@@ -206,7 +206,7 @@ class OnboardingEngine:
 
         if not value:
             return OnboardingResult(
-                message="Please enter your preferred language."
+                message="Please enter your preferred language.",
                 completed=False,
                 next_step=OnboardingStep.LANGUAGE,
             )

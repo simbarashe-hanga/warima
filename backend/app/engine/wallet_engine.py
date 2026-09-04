@@ -4,6 +4,10 @@ from typing import Dict, Any
 
 from app.services.identity.session_manager import SessionManager
 
+from app.services.wallet.wallet_service import WalletService
+
+from app.models.wallet import Wallet
+
 
 class WalletEngine:
     """
@@ -48,6 +52,7 @@ class WalletEngine:
         intent: Dict[str, Any],
         session,
         member_context: Dict[str, Any],
+        db=None,
     ) -> Dict[str, Any]:
         """
         Process a wallet conversation.
@@ -56,6 +61,52 @@ class WalletEngine:
         User/account lookup and blockchain operations should be
         handled by the appropriate service layer.
         """
+
+        intent_name = intent.get("intent")
+
+        if intent_name == "wallet.balance":
+            member_account = member_context.get("member_account")
+
+            if db is None:
+                return {
+                    "message": (
+                        "I'm unable to access your wallet right now."
+                        "Please try again."
+                    ),
+                    "type": "text",
+                    "context_update": {},
+                }
+
+            if member_account is None:
+                return {
+                    "message": (
+                        "I couldn't find your member account."
+                        "Please complete your account setup first."
+                    ),
+                    "type": "text",
+                    "context_update": {},
+                }
+
+            wallet = WalletService.get_wallet(
+                db=db,
+                member_account=member_account,
+            )
+
+            if wallet is None:
+                return {
+                    "message": "Your wallet balance is R0.00.",
+                    "type": "text",
+                    "context_update": {},
+                }
+
+            return {
+                "message": (
+                    f"Your wallet balance is "
+                    f"R{wallet.balance:,.2f}."
+                ),
+                "type": "text",
+                "context_update": {},
+            }
 
         step = SessionManager.wallet_step(session)
 
@@ -69,6 +120,8 @@ class WalletEngine:
             return await self._handle_confirmation(
                 session,
                 message,
+                member_context,
+                db,
             )
 
         if step == "chatting":
@@ -154,14 +207,44 @@ class WalletEngine:
         self,
         session,
         message,
+        member_context,
+        db,
     ):
         """
         Handle contribution confirmation.
 
-        Actual contribution processing will be delegated to a
-        wallet/finance service once the user/account architecture
-        is connected.
+        Creates a pending wallet transaction.
+        Does not credit the wallet or execute blockchain operations.
         """
+        selected_stokvel_id = (
+            SessionManager.selected_stokvel_id(session)
+        )
+
+        stokvel_name = None
+
+        if selected_stokvel_id and db is not None:
+            from app.services.stokvel.stokvel_service import StokvelService
+
+            stokvel_service = StokvelService(db)
+            stokvel = stokvel_service.get_stokvel(
+                selected_stokvel_id
+            )
+
+            if stokvel:
+                stokvel_name = stokvel.name
+
+            if stokvel_name:
+                message = (
+                    f"Please confirm your contribution of "
+                    f"*R{amount:.2f}* to *{stokvel_name}*.\n\n"
+                    "Reply *1* to confirm or *2* to cancel."
+                )
+            else:
+                message = (
+                    f"Please confirm your contribution of "
+                    f"*R{amount:.2f}*.\n\n"
+                    "Reply *1* to confirm or *2* to cancel."
+                )
 
         amount = SessionManager.wallet_amount(session)
 
@@ -182,29 +265,34 @@ class WalletEngine:
             }
 
         if message.strip().lower() in {"1", "yes", "y"}:
+            member_account = member_context.get("member_account")
 
-            # Business operation intentionally not implemented here.
-            #
-            # Future architecture:
-            #
-            # WalletEngine
-            #       ↓
-            # WalletService
-            #       ↓
-            # Finance / Ledger
-            #       ↓
-            # BlockchainService
-            #
-            # For now we acknowledge the command without pretending
-            # that a blockchain transaction occurred.
+            if db is None:
+                raise RuntimeError("Database session is required")
+
+            try:
+                transaction = WalletService.create_contribution(
+                    db=db,
+                    member_account=member_account,
+                    amount=amount,
+                    stokvel_id=selected_stokvel_id,
+                )
+
+            except ValueError as exc:
+                return {
+                    "message": str(exc),
+                    "type": "text",
+                    "context_update": {},
+                }
 
             SessionManager.finish_wallet(session)
 
             return {
                 "message": (
-                    f"Contribution of R{amount:,.2f} "
-                    "has been requested.\n\n"
-                    "Wallet processing is currently being configured."
+                    f"Contribution request created for "
+                    f"R{amount:,.2f}.\n\n"
+                    f"Reference: *{transaction.reference}*\n\n"
+                    "Status: *Pending*"
                 ),
                 "type": "text",
                 "context_update": {

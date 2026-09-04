@@ -1,7 +1,11 @@
-import uuid
+import secrets
+import string
+
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.stokvel import Stokvel
 from app.models.membership import Membership
+from app.models.member_account import MemberAccount
 from app.models.enums import (
     StokvelStatus,
     MembershipRole,
@@ -11,23 +15,45 @@ from app.models.enums import (
 
 class StokvelService:
     """
-    Business operations for stokvels
+    Business operations for stokvels.
 
-    This service manages:
-    - stokvel creation
-    - membership
-    - membership lookup
-    - stokvel retrieval
+    Responsibilities:
+    - Create stokvels
+    - Generate unique join codes
+    - Activate stokvels
+    - Add members
+    - Retrieve stokvels
+    - Retrieve memberships
 
-    Financial operations should remain in the wallet/ledger layer
+    Transaction ownership remains with the caller.
+    This service uses flush() rather than commit().
     """
+
+    JOIN_CODE_ALPHABET = string.ascii_uppercase + string.digits
+    JOIN_CODE_LENGTH = 6
 
     def __init__(self, db: Session):
         self.db = db
 
-    #-------------------------------------------------------------------
-    # Create
-    #-------------------------------------------------------------------
+    def _generate_join_code(self) -> str:
+        """
+        Generate a unique human-friendly join code.
+        """
+
+        while True:
+            code = "".join(
+                secrets.choice(self.JOIN_CODE_ALPHABET)
+                for _ in range(self.JOIN_CODE_LENGTH)
+            )
+
+            existing = (
+                self.db.query(Stokvel)
+                .filter(Stokvel.join_code == code)
+                .first()
+            )
+
+            if not existing:
+                return code
 
     def create_stokvel(
         self,
@@ -36,21 +62,16 @@ class StokvelService:
     ) -> Stokvel:
 
         stokvel = Stokvel(
-            id=uuid.uuid4(),
-            name=name,
-            description=description,
+            name=name.strip(),
+            join_code=self._generate_join_code(),
+            description=description.strip() if description else None,
             status=StokvelStatus.PENDING,
         )
 
         self.db.add(stokvel)
-        self.db.commit()
-        self.db.refresh(stokvel)
+        self.db.flush()
 
         return stokvel
-
-    #-----------------------------------------------------------------------
-    # Get
-    #-----------------------------------------------------------------------
 
     def get_stokvel(
         self,
@@ -63,9 +84,18 @@ class StokvelService:
             .first()
         )
 
-    #------------------------------------------------------------------------
-    # Activate
-    #------------------------------------------------------------------------
+    def get_stokvel_by_join_code(
+        self,
+        join_code: str,
+    ) -> Stokvel | None:
+
+        code = join_code.strip().upper()
+
+        return (
+            self.db.query(Stokvel)
+            .filter(Stokvel.join_code == code)
+            .first()
+        )
 
     def activate_stokvel(
         self,
@@ -78,19 +108,13 @@ class StokvelService:
             return None
 
         stokvel.status = StokvelStatus.ACTIVE
-
-        self.db.commit()
-        self.db.refresh(stokvel)
+        self.db.flush()
 
         return stokvel
 
-    #-------------------------------------------------------------------------
-    # Add member
-    #-------------------------------------------------------------------------
-
     def add_member(
         self,
-        member_Account_id,
+        member_account_id,
         stokvel_id,
         role: MembershipRole = MembershipRole.MEMBER,
     ) -> Membership:
@@ -108,26 +132,20 @@ class StokvelService:
             return existing
 
         membership = Membership(
-            id=uuid.uuid4(),
-            memberaccount_id=member_account_id,
+            member_account_id=member_account_id,
             stokvel_id=stokvel_id,
             role=role,
             status=MembershipStatus.ACTIVE,
         )
 
         self.db.add(membership)
-        self.db.commit()
-        self.db.refresh(membership)
+        self.db.flush()
 
         return membership
 
-    #---------------------------------------------------------------------------
-    # Get member's stokvels
-    #---------------------------------------------------------------------------
-
     def get_member_stokvels(
         self,
-        member_Account_id,
+        member_account_id,
     ) -> list[Stokvel]:
 
         return (
@@ -138,14 +156,10 @@ class StokvelService:
             )
             .filter(
                 Membership.member_account_id == member_account_id,
-                Membershipt.status == MembershipStatus.ACTIVE,
+                Membership.status == MembershipStatus.ACTIVE,
             )
             .all()
         )
-
-    #-----------------------------------------------------------------------------
-    # Get membership
-    #-----------------------------------------------------------------------------
 
     def get_membership(
         self,
@@ -161,4 +175,22 @@ class StokvelService:
                 Membership.status == MembershipStatus.ACTIVE,
             )
             .first()
+        )
+
+    def get_stokvel_members(self, stokvel_id) -> list[Membership]:
+        """
+        Return active memberships for a stokvel with member account
+        and user information eagerly loaded.
+        """
+        return (
+            self.db.query(Membership)
+            .options(
+                joinedload(Membership.member_account)
+                .joinedload(MemberAccount.user)
+            )
+            .filter(
+                Membership.stokvel_id == stokvel_id,
+                Membership.status == MembershipStatus.ACTIVE,
+            )
+            .all()
         )

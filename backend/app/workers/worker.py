@@ -30,6 +30,8 @@ from app.engine.wallet_engine import WalletEngine
 
 from app.services.ai.agent_service import AgentService
 
+from app.engine.stokvel_engine import StokvelEngine
+
 
 load_dotenv()
 
@@ -90,9 +92,11 @@ async def process_message(db, event):
 
     agent_service = AgentService()
     wallet_engine = WalletEngine()
+    stokvel_engine = StokvelEngine()
 
     flow_router = FlowRouter(
         wallet_engine=wallet_engine,
+        stokvel_engine=stokvel_engine,
         agent=agent_service,
     )
 
@@ -208,6 +212,7 @@ async def process_message(db, event):
                     "identity": identity,
                     "member_account": member_account,
                 },
+                db=db,
             )
 
             print("FLOW ROUTER RESULT:", result)

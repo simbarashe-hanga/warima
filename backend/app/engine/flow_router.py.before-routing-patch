@@ -31,6 +31,7 @@ class FlowRouter:
         kyc_engine=None,
         investment_engine=None,
         portfolio_service=None,
+        blockchain_engine=None,
         agent=None,
     ):
         self.onboarding_engine = onboarding_engine
@@ -39,6 +40,7 @@ class FlowRouter:
         self.kyc_engine = kyc_engine
         self.investment_engine = investment_engine
         self.portfolio_service = portfolio_service
+        self.blockchain_engine = blockchain_engine
         self.agent = agent
 
     # ============================================================
@@ -113,30 +115,10 @@ class FlowRouter:
 
         intent_name = intent.get("intent", "")
 
-        if intent_name == "conversation.cancel":
-
-            SessionManager.clear_other_flows(
-                session=session,
-                active_flow="none",
-            )
-
-            return self._finalise(
-                {
-                    "message": "Okay. I've cancelled that. You're back at the main menu.",
-                    "type": "text",
-                    "context_update": {
-                        "agent": session_context.get("agent", {}),
-                        "onboarding": session_context.get("onboarding", {}),
-                        "wallet": session_context.get("wallet", {}),
-                        "stokvel": session_context.get("stokvel", {}),
-                        "kyc": session_context.get("kyc", {}),
-                        "investment": session_context.get("investment", {}),
-                    },
-                },
-                session_context,
-            )
-
-        explicit_intent = flow != "conversation"
+        explicit_intent = (
+            intent_name == "conversation.cancel"
+            or flow != "conversation"
+        )
 
         if explicit_intent:
             result = await self._route_flow(
@@ -403,11 +385,6 @@ class FlowRouter:
 
         if command == "agent":
 
-            SessionManager.clear_other_flows(
-                session=session,
-                active_flow="agent",
-            )
-
             session_context["agent"] = {
                 **session_context.get("agent", {}),
                 "active": True,
@@ -428,21 +405,13 @@ class FlowRouter:
 
         if command == "exit":
 
-            SessionManager.clear_other_flows(
-                session=session,
-                active_flow="none",
-            )
+            self._deactivate_agent(session_context)
 
             return {
                 "message": "Okay. You're back at the main menu.",
                 "type": "text",
                 "context_update": {
-                    "agent": session_context.get("agent", {}),
-                    "onboarding": session_context.get("onboarding", {}),
-                    "wallet": session_context.get("wallet", {}),
-                    "stokvel": session_context.get("stokvel", {}),
-                    "kyc": session_context.get("kyc", {}),
-                    "investment": session_context.get("investment", {}),
+                    "agent": session_context["agent"],
                 },
             }
 
@@ -578,72 +547,36 @@ class FlowRouter:
 
         if command == "profile":
 
-            user = member_context.get("user")
+            profile = member_context.get("profile", {})
 
-            if user is None:
+            first_name = profile.get("first_name")
+            last_name = profile.get("last_name")
+
+            if first_name or last_name:
+
+                name = " ".join(
+                    value
+                    for value in [first_name, last_name]
+                    if value
+                )
+
                 return {
-                    "message": (
-                        "I don't have enough information "
-                        "about your profile."
-                    ),
+                    "message": f"Your profile name is {name}.",
                     "type": "text",
                     "context_update": {},
                 }
 
-            display_name = getattr(
-                user,
-                "display_name",
-                None,
-            )
-
-            first_name = getattr(
-                user,
-                "first_name",
-                None,
-            )
-
-            last_name = getattr(
-                user,
-                "last_name",
-                None,
-            )
-
-            email = getattr(
-                user,
-                "email",
-                None,
-            )
-
-            name = (
-                display_name
-                or "".join(
-                    value
-                    for value in [
-                        first_name,
-                        last_name,
-                    ]
-                    if value
-                )
-            )
-
-            if not name:
-                name = "Not provided"
-
-            lines = [
-                "*Your profile*",
-                "",
-                f"Name: {name}",
-            ]
-
-            if email:
-                lines.append(f"Email: {email}")
-
             return {
-                "message": "\n".join(lines),
+                "message": "I don't have enough information about your profile.",
                 "type": "text",
                 "context_update": {},
             }
-    
+
+        return {
+            "message": "I didn't understand that.\n\nType *Help* to see what I can do.",
+            "type": "text",
+            "context_update": {},
+        }
 
     # ============================================================
     # ACTIVE FLOW

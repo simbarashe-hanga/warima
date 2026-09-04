@@ -66,6 +66,8 @@ class SessionManager:
             {
                 "active": False,
                 "step": None,
+                "options": [],
+                "selected_stokvel_id": None,
             },
         )
 
@@ -377,20 +379,32 @@ class SessionManager:
         return cls.stokvel_context(session)["step"]
 
     @classmethod
+    def stokvel_options(cls, session):
+        return cls.stokvel_context(session).get("options", [])
+
+    @classmethod
+    def selected_stokvel_id(cls, session):
+        return cls.stokvel_context(session).get("selected_stokvel_id")
+
+    @classmethod
     def start_stokvel(
         cls,
         session,
         step=None,
+        options=None,
     ):
         context = cls.context(session)
 
         context["stokvel"] = {
             "active": True,
             "step": step,
+            "options": options or [],
+            "selected_stokvel_id": context["stokvel"].get(
+                "selected_stokvel_id"
+            ),
         }
 
         session.context = context
-
         return context["stokvel"]
 
     @classmethod
@@ -415,17 +429,124 @@ class SessionManager:
         return stokvel
 
     @classmethod
+    def set_stokvel_options(cls, session, options):
+        context = cls.context(session)
+
+        stokvel = dict(context["stokvel"])
+        stokvel["options"] = options
+
+        context["stokvel"] = stokvel
+        session.context = context
+
+        return stokvel
+
+    @classmethod
+    def set_selected_stokvel(cls, session, stokvel_id):
+        context = cls.context(session)
+
+        stokvel = dict(context["stokvel"])
+        stokvel["selected_stokvel_id"] = str(stokvel_id)
+
+        context["stokvel"] = stokvel
+        session.context = context
+
+        return stokvel
+
+    @classmethod
+    def clear_selected_stokvel(cls, session):
+        context = cls.context(session)
+
+        stokvel = dict(context["stokvel"])
+        stokvel["selected_stokvel_id"] = None
+
+        context["stokvel"] = stokvel
+        session.context = context
+
+        return stokvel
+
+    @classmethod
+    def pause_stokvel(cls, session):
+        """
+        Deactivate the stokvel conversational flow while preserving
+        the currently selected stokvel
+
+        Used when handling a selected stokvel to another flow such
+        as WalletEngine.
+        """
+        context = cls.context(session)
+
+        stokvel = dict(context["stokvel"])
+        stokvel["active"] = False
+        stokvel["step"] = None
+        stokvel["options"] = []
+
+        context["stokvel"] = stokvel
+        session.context = context
+
+        return stokvel
+
+    @classmethod
     def finish_stokvel(cls, session):
         context = cls.context(session)
 
         context["stokvel"] = {
             "active": False,
             "step": None,
+            "options": [],
+            "selected_stokvel_id": None,
         }
 
         session.context = context
 
         return context["stokvel"]
+
+    #=============================================================
+    # FLOW MANAGEMENT
+    #=============================================================
+
+    @classmethod
+    def clear_other_flows(
+        cls,
+        session,
+        active_flow: str,
+    ):
+        """
+        Deactivate all interactive flows except active_flow.
+
+        Only one interactive flow should be active at a time.
+        """
+
+        context = cls.context(session)
+
+        if active_flow != "wallet":
+            cls.finish_wallet(session)
+
+        if active_flow != "stokvel":
+            if active_flow == "wallet":
+                # Preserve selected stokvel when handling contribution
+                # processing to WalletEngine
+                cls.pause_stokvel(session)
+            else:
+                cls.finish_stokvel(session)
+
+        if active_flow != "kyc":
+            cls.finish_kyc(session)
+
+        if active_flow != "investment":
+            cls.finish_investment(session)
+
+        if active_flow != "onboarding":
+            onboarding = dict(context["onboarding"])
+            onboarding["active"] = False
+            onboarding["step"] = None
+            context["onboarding"] = onboarding
+
+        if active_flow != "agent":
+            cls.finish_agent(session)
+
+        session.context = context
+
+        return context
 
     # ============================================================
     # KYC

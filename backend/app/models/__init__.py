@@ -13,3 +13,7 @@ from app.models.conversation import ConversationMessage
 from app.models.event_queue import EventQueue
 
 from app.models.pig import Pig, HealthEvent
+
+from app.models.wallet import Wallet
+from app.models.wallet_transaction import WalletTransaction
+from app.models.wallet_ledger import WalletLedger

@@ -31,6 +31,13 @@ class Stokvel(Base):
         nullable=False,
     )
 
+    join_code = Column(
+        String(12),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
     description = Column(
         Text,
         nullable=True,
