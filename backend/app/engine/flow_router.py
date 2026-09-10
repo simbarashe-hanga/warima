@@ -91,84 +91,33 @@ class FlowRouter:
 
             return self._finalise(result, session_context)
 
-        # --------------------------------------------------------
-        # 2. EXPLICIT STRUCTURED INTENTS
-        #
-        # Explicit user intent takes priority over ab unrelated
-        # active flow.
-        #
-        # Examples:
-        # "join"    -> stokvel.join
-        # "create stokvel" -> stokvel.create
-        # "balance" -> wallet.balance
-        # "cancel"  => conversation.cancel
-        #
-        # Generic inputs such as "100" will not normally resolve
-        # to a domain flow and therefore continue the active flow.
-        # --------------------------------------------------------
+        #---------------------------------------------------------
+        # 2. DETERMINE INTENT FLOW
+        #---------------------------------------------------------
 
         flow = self._flow_from_intent(intent)
 
         print("FLOW ROUTER SELECTED FLOW:", flow)
 
-        intent_name = intent.get("intent", "")
+        intent_name = intent.get("intnet", "")
 
-        if intent_name == "conversation.cancel":
-
-            SessionManager.clear_other_flows(
-                session=session,
-                active_flow="none",
-            )
-
-            return self._finalise(
-                {
-                    "message": "Okay. I've cancelled that. You're back at the main menu.",
-                    "type": "text",
-                    "context_update": {
-                        "agent": session_context.get("agent", {}),
-                        "onboarding": session_context.get("onboarding", {}),
-                        "wallet": session_context.get("wallet", {}),
-                        "stokvel": session_context.get("stokvel", {}),
-                        "kyc": session_context.get("kyc", {}),
-                        "investment": session_context.get("investment", {}),
-                    },
-                },
-                session_context,
-            )
-
-        explicit_intent = flow != "conversation"
-
-        if explicit_intent:
-            result = await self._route_flow(
-                flow=flow,
-                message=message,
-                intent=intent,
-                session=session,
-                session_context=session_context,
-                member_context=member_context,
-                db=db,
-            )
-
-            if result is not None:
-                return self._finalise(result, session_context)
-
-        # --------------------------------------------------------
+        #---------------------------------------------------------
         # 3. ACTIVE FLOW
         #
-        # If there is no explicit flow-switching intent,
-        # continue the current conversation.
+        # Conversation-level intents must NOT override an
+        # active deterministic flow.
         #
-        # Examples:
-        # 100 -> wallet awaiting_amount
-        # 1 -> wallet awaitung_confirmation
-        # Family Savings -> stokvel awaiting_name
-        # --------------------------------------------------------
+        # Example:
+        # Stokvel menu + "2"
+        # classifier says conversation.cancel
+        # -> StokvelEngine must receive "2"
+        #---------------------------------------------------------
 
         active_flow = self._get_active_flow(session_context)
 
         print("FLOW ROUTER ACTIVE FLOW:", active_flow)
 
-        if active_flow:
+        if active_flow and flow == "conversation":
             result = await self._route_active_flow(
                 active_flow=active_flow,
                 message=message,
@@ -182,8 +131,62 @@ class FlowRouter:
             if result is not None:
                 return self._finalise(result, session_context)
 
+        #---------------------------------------------------------
+        # 4. EXPLICIT STRUCTURE INTENTS
+        #
+        # Domain intents can intentionally switch flows.
+        #---------------------------------------------------------
+
+        if flow != "conversation":
+
+            result = await self._route_flow(
+                flow=flow,
+                message=message,
+                intent=intent,
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+                db=db,
+            )
+
+            if result is not None:
+                return self._finalise(result, session_context)
+
+        #--------------------------------------------------------
+        # 5. CONVERSATION CANCEL
+        #
+        # Only reached when there is no active flow that handled
+        # the message.
+        #--------------------------------------------------------
+
+        if intent_name == "conversation.cancel":
+
+            SessionManager.clear_other_flows(
+                session=session,
+                active_flow="none",
+            )
+
+            return self._finalise(
+                {
+                    "message": (
+                        "Okay. I've cancelled that."
+                        "You're back at the main menu."
+                    ),
+                    "type": "text",
+                    "context_update": {
+                        "agent": session_context.get("agent", {}),
+                        "onboarding": session_context.get("onboarding", {}),
+                        "wallet": session_context.get("wallet", {}),
+                        "stokvel": session_context.get("stokvel", {}),
+                        "kyc": session_context.get("kyc", {}),
+                        "investment": session_context.get("investment", {}),
+                    },
+                },
+                session_context,
+            )
+
         # --------------------------------------------------------
-        # 4. CONVERSATION FALLBACK
+        # 6. CONVERSATION FALLBACK
         #
         # AI is ONLY used here.
         # --------------------------------------------------------
