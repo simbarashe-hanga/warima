@@ -75,13 +75,13 @@ class WalletService:
                 )
 
             membership = (
-                db.query(Memebrship)
+                db.query(Membership)
                 .filter(
                     Membership.member_account_id == member_account.id,
                     Membership.stokvel_id == stokvel.id,
                     Membership.status == MembershipStatus.ACTIVE,
                 )
-                .one_or_more()
+                .one_or_none()
             )
 
             if membership is None:

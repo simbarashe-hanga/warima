@@ -216,9 +216,13 @@ class WalletEngine:
         Creates a pending wallet transaction.
         Does not credit the wallet or execute blockchain operations.
         """
+        confirmation = message.strip().lower()
+
         selected_stokvel_id = (
             SessionManager.selected_stokvel_id(session)
         )
+        
+        amount = SessionManager.wallet_amount(session)
 
         stokvel_name = None
 
@@ -246,7 +250,6 @@ class WalletEngine:
                     "Reply *1* to confirm or *2* to cancel."
                 )
 
-        amount = SessionManager.wallet_amount(session)
 
         if amount is None:
             SessionManager.finish_wallet(session)
@@ -264,7 +267,7 @@ class WalletEngine:
                 },
             }
 
-        if message.strip().lower() in {"1", "yes", "y"}:
+        if confirmation in {"1", "yes", "y"}:
             member_account = member_context.get("member_account")
 
             if db is None:

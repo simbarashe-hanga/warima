@@ -508,8 +508,9 @@ class StokvelEngine:
 
         if choice == "1":
             return self._view_details(
-                session=session,
                 stokvel=stokvel,
+                member_account=member_account,
+                service=service,
             )
 
         if choice == "2":
