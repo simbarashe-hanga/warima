@@ -130,7 +130,7 @@ class ConversationManager:
 
         return {
             "message": (
-                "Hi! 👋 Welcome to Warima.\n\n"
+                "Hi! Welcome to Warima.\n\n"
                 "I can help you save, manage your wallet, "
                 "manage stokvels and invest.\n\n"
                 "Type *Help* to see what you can do."

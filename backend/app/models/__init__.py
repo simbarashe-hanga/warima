@@ -17,3 +17,6 @@ from app.models.pig import Pig, HealthEvent
 from app.models.wallet import Wallet
 from app.models.wallet_transaction import WalletTransaction
 from app.models.wallet_ledger import WalletLedger
+
+from app.models.settlement import Settlement
+from app.models.stokvel_treasury import StokvelTreasury

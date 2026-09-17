@@ -65,7 +65,10 @@ class WalletService:
         if stokvel_id is not None:
             stokvel = (
                 db.query(Stokvel)
-                .filter(Stokvel.id == stokvel_id)
+                .filter(
+                    Stokvel.id == stokvel_id,
+                    Stokvel.status == StokvelStatus.ACTIVE,
+                )
                 .one_or_none()
             )
 

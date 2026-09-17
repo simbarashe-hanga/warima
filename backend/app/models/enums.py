@@ -81,3 +81,40 @@ class WalletTransactionStatus(str, Enum):
 class WalletLedgerEntryType(str, Enum):
     CREDIT = "CREDIT"
     DEBIT = "DEBIT"
+
+class SettlementStatus(str, Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+class SettlementAsset(str, Enum):
+    SOL = "SOL"
+
+class StokvelType(str, Enum):
+    SAVINGS = "SAVINGS"
+    AGRICULTURE = "AGRICULTURE"
+    DIGITAL_ASSET = "DIGITAL_ASSET"
+
+class TreasuryDenomination(str, Enum):
+    SOL = "SOL"
+    WZAR = "WZAR"
+    ZAR = "ZAR"
+
+class TreasuryRail(str, Enum):
+    SOLANA = "SOLANA"
+    EVM = "EVM"
+    OFF_CHAIN = "OFF_CHAIN"
+
+
+class TreasuryStrategy(str, Enum):
+    ON_CHAIN = "ON_CHAIN"
+    AGRICULTURE = "AGRICULTURE"
+    CASH = "CASH"
+
+
+class TreasuryReturnSource(str, Enum):
+    ON_CHAIN = "ON_CHAIN"
+    MEAT_SALES = "MEAT_SALES"
+    CASH_RETURNS = "CASH_RETURNS"

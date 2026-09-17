@@ -4,6 +4,22 @@ class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://warima_user:kGomoTso90@warima.cwz240eoqfjh.us-east-1.rds.amazonaws.com:5432/warima")
     RPC_URL: str = os.getenv("RPC_URL", "http://anvil:8545")
     CHAIN_ID: int = int(os.getenv("CHAIN_ID", "31337"))
+    EVM_NETWORK: str = os.getenv(
+        "EVM_NETWORK",
+        "base-sepolia",
+    )
+    SOLANA_RPC_URL: str = os.getenv(
+        "SOLANA_RPC_URL",
+        "https://api/devnet.solana.com",
+    )
+    SOLANA_NETWORK: str = os.getenv(
+        "SOLANA_NETWORK",
+        "devnet",
+    )
+    SOLANA_TREASURY_PRIVATE_KEY: str = os.getenv(
+        "SOLANA_TREASURY_PRIVATE_KEY",
+        "",
+    )
     DEPLOYER_PRIVATE_KEY: str = os.getenv("DEPLOYER_PRIVATE_KEY", "")
     NFT_ADDRESS: str = os.getenv("NFT_ADDRESS", "")
     TOKEN_ADDRESS: str = os.getenv("TOKEN_ADDRESS", "")

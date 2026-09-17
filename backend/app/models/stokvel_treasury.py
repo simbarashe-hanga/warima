@@ -4,10 +4,9 @@ from sqlalchemy import (
     Column,
     DateTime,
     Enum,
+    ForeignKey,
     String,
-    Text,
 )
-
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -15,12 +14,15 @@ from sqlalchemy.sql import func
 from app.db.base import Base
 
 from app.models.enums import (
-    StokvelStatus,
-    StokvelType,
+    TreasuryDenomination,
+    TreasuryRail,
+    TreasuryStrategy,
+    TreasuryReturnSource,
 )
 
-class Stokvel(Base):
-    __tablename__="stokvels"
+
+class StokvelTreasury(Base):
+    __tablename__ = "stokvel_treasuries"
 
     id = Column(
         UUID(as_uuid=True),
@@ -28,33 +30,37 @@ class Stokvel(Base):
         default=uuid.uuid4,
     )
 
-    name = Column(
-        String(120),
-        nullable=False,
-    )
-
-    join_code = Column(
-        String(12),
+    stokvel_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("stokvels.id"),
         nullable=False,
         unique=True,
         index=True,
     )
 
-    description = Column(
-        Text,
+    denomination = Column(
+        Enum(TreasuryDenomination),
+        nullable=False,
+    )
+
+    rail = Column(
+        Enum(TreasuryRail),
+        nullable=False,
+    )
+
+    network = Column(
+        String(50),
         nullable=True,
     )
 
-    stokvel_type = Column(
-        Enum(StokvelType),
+    strategy = Column(
+        Enum(TreasuryStrategy),
         nullable=False,
-        default=StokvelType.SAVINGS,
     )
 
-    status = Column(
-        Enum(StokvelStatus),
+    return_source = Column(
+        Enum(TreasuryReturnSource),
         nullable=False,
-        default=StokvelStatus.PENDING,
     )
 
     created_at = Column(
@@ -70,16 +76,7 @@ class Stokvel(Base):
         nullable=False,
     )
 
-    memberships = relationship(
-        "Membership",
-        back_populates="stokvel",
-        cascade="all, delete-orphan",
+    stokvel = relationship(
+        "Stokvel",
+        back_populates="treasury",
     )
-
-    treasury = relationship(
-        "StokvelTreasury",
-        back_populates="stokvel",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
-    

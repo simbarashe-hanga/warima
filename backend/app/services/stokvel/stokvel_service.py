@@ -8,9 +8,18 @@ from app.models.membership import Membership
 from app.models.member_account import MemberAccount
 from app.models.enums import (
     StokvelStatus,
+    StokvelType,
     MembershipRole,
     MembershipStatus,
+    TreasuryDenomination,
+    TreasuryRail,
+    TreasuryStrategy,
+    TreasuryReturnSource,
 )
+
+from app.services.treasury.treasury_service import TreasuryService
+
+from app.models.wallet_transaction import WalletTransaction
 
 
 class StokvelService:
@@ -35,6 +44,33 @@ class StokvelService:
     def __init__(self, db: Session):
         self.db = db
 
+    def _require_owner(
+        self,
+        member_account_id,
+        stokvel_id,
+    ) -> Membership:
+        """
+        Require an active owner membership for a stokvel.
+        """
+
+        membership = (
+            self.db.query(Membership)
+            .filter(
+                Membership.member_account_id == member_account_id,
+                Membership.stokvel_id == stokvel_id,
+                Membership.status == MembershipStatus.ACTIVE,
+                Membership.role == MembershipRole.OWNER,
+            )
+            .first()
+        )
+
+        if not membership:
+            raise ValueError(
+                "Only the stokvel owner can perform this action."
+            )
+
+        return membership
+
     def _generate_join_code(self) -> str:
         """
         Generate a unique human-friendly join code.
@@ -58,20 +94,73 @@ class StokvelService:
     def create_stokvel(
         self,
         name: str,
+        stokvel_type: StokvelType = StokvelType.SAVINGS,
         description: str | None = None,
     ) -> Stokvel:
+        """
+        Create a stokvel together with its treasury configuration.
+
+        The user-facing StokvelType determines the underlying
+        treasury configuration. Callers should not need to know
+        about denominations, rails, networks, or strategies.
+
+        Treasury creation happens in the same database transaction
+        as stokvel creation. The caller owns commit/rollback.
+        """
+
+        if not name or not name.strip():
+            raise ValueError("Stokvel name is required")
+
+        treasury_config = {
+            StokvelType.SAVINGS: {
+                "denomination": TreasuryDenomination.ZAR,
+                "rail": TreasuryRail.OFF_CHAIN,
+                "network": None,
+                "strategy": TreasuryStrategy.CASH,
+                "return_source": TreasuryReturnSource.CASH_RETURNS,
+            },
+            StokvelType.AGRICULTURE: {
+                "denomination": TreasuryDenomination.WZAR,
+                "rail": TreasuryRail.EVM,
+                "network": "base-sepolia",
+                "strategy": TreasuryStrategy.AGRICULTURE,
+                "return_source": TreasuryReturnSource.MEAT_SALES,
+            },
+            StokvelType.DIGITAL_ASSET: {
+                "denomination": TreasuryDenomination.SOL,
+                "rail": TreasuryRail.SOLANA,
+                "network": "devnet",
+                "strategy": TreasuryStrategy.ON_CHAIN,
+                "return_source": TreasuryReturnSource.ON_CHAIN,
+            },
+        }
+
+        config = treasury_config.get(stokvel_type)
+
+        if config is None:
+            raise ValueError(
+                f"Unsupported stokvel type: {stokvel_type}"
+            )
 
         stokvel = Stokvel(
             name=name.strip(),
             join_code=self._generate_join_code(),
             description=description.strip() if description else None,
+            stokvel_type=stokvel_type,
             status=StokvelStatus.PENDING,
         )
 
         self.db.add(stokvel)
         self.db.flush()
 
+        TreasuryService.create_treasury(
+            db=self.db,
+            stokvel=stokvel,
+            **config,
+        )
+
         return stokvel
+
 
     def get_stokvel(
         self,
@@ -108,6 +197,145 @@ class StokvelService:
             return None
 
         stokvel.status = StokvelStatus.ACTIVE
+        self.db.flush()
+
+        return stokvel
+
+    def delete_stokvel(
+        self,
+        member_account_id,
+        stokvel_id,
+    ) -> bool:
+        """
+        Permanent delete stokvel when it has no financial history
+
+        A stokvel with any wallet transaction must never be
+        physically deleted. Such a stokvel should be closed instead.
+
+        Transaction ownership remains with the caller.
+        """
+
+        stokvel = self.get_stokvel(stokvel_id)
+
+        if not stokvel:
+            return False
+
+        self._require_owner(
+            member_account_id,
+            stokvel_id,
+        )
+
+        financial_activity = (
+            self.db.query(WalletTransaction.id)
+            .filter(
+                WalletTransaction.stokvel_id == stokvel_id
+            )
+            .first()
+        )
+
+        if financial_activity:
+            raise ValueError(
+                "Stokvel cannot be deleted because it has financial history. "
+                "Close the stokvel instead"
+            )
+
+        self.db.delete(stokvel)
+        self.db.flush()
+
+        return True
+
+    def suspend_stokvel(
+        self,
+        member_account_id,
+        stokvel_id,
+    ) -> Stokvel | None:
+        """
+        Suspend an active stokvel
+
+        Transaction ownership remains with the caller
+        """
+
+        stokvel = self.get_stokvel(stokvel_id)
+
+        self._require_owner(
+            member_account_id,
+            stokvel_id,
+        )
+
+        if not stokvel:
+            return None
+
+        if stokvel.status != StokvelStatus.ACTIVE:
+            raise ValueError(
+                "Only an active stokvel can be suspended."
+            )
+
+        stokvel.status = StokvelStatus.SUSPENDED
+        self.db.flush()
+
+        return stokvel
+
+    def resume_stokvel(
+        self,
+        member_account_id,
+        stokvel_id,
+    ) -> Stokvel | None:
+        """
+        Resume a suspended stokvel.
+
+        Transaction onwership remains with the caller
+        """
+
+        stokvel = self.get_stokvel(stokvel_id)
+
+        self._require_owner(
+            member_account_id,
+            stokvel_id,
+        )
+
+        if not stokvel:
+            return None
+
+        if stokvel.status != StokvelStatus.SUSPENDED:
+            raise ValueError(
+                "Only a suspended stokvel can be resumed."
+            )
+
+        stokvel.status = StokvelStatus.ACTIVE
+        self.db.flush()
+
+        return stokvel
+
+    def close_stokvel(
+        self,
+        member_account_id,
+        stokvel_id,
+    ) -> Stokvel | None:
+        """
+        Permanently close a stokvel while preserving its history.
+
+        A closed stokvel cannot be reopened through this method
+        """
+
+        stokvel = self.get_stokvel(stokvel_id)
+
+        self._require_owner(
+            member_account_id,
+            stokvel_id,
+        )
+
+        if not stokvel:
+            return None
+
+        if stokvel.status not in (
+            StokvelStatus.ACTIVE,
+            StokvelStatus.SUSPENDED,
+        ):
+            raise ValueError(
+                "Only an active or suspended stokvel can be closed."
+            )
+
+        stokvel.status = StokvelStatus.CLOSED
         self.db.flush()
 
         return stokvel

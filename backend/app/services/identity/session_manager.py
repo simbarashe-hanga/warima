@@ -383,6 +383,22 @@ class SessionManager:
         return cls.stokvel_context(session).get("options", [])
 
     @classmethod
+    def pending_stokvel_name(cls, session):
+        return cls.stokvel_context(session).get("pending_name")
+
+    @classmethod
+    def set_pending_stokvel_name(cls, session, name):
+        context = cls.context(session)
+
+        stokvel = dict(context["stokvel"])
+        stokvel["pending_name"] = name
+
+        context["stokvel"] = stokvel
+        session.context = context
+
+        return stokvel
+
+    @classmethod
     def selected_stokvel_id(cls, session):
         return cls.stokvel_context(session).get("selected_stokvel_id")
 
@@ -399,6 +415,7 @@ class SessionManager:
             "active": True,
             "step": step,
             "options": options or [],
+            "pending": None,
             "selected_stokvel_id": context["stokvel"].get(
                 "selected_stokvel_id"
             ),
@@ -493,6 +510,7 @@ class SessionManager:
             "active": False,
             "step": None,
             "options": [],
+            "pending_name": None,
             "selected_stokvel_id": None,
         }
 
