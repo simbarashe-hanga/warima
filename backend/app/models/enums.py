@@ -91,6 +91,8 @@ class SettlementStatus(str, Enum):
 
 class SettlementAsset(str, Enum):
     SOL = "SOL"
+    ZAR = "ZAR"
+    WZAR = "WZAR"
 
 class StokvelType(str, Enum):
     SAVINGS = "SAVINGS"

@@ -5,7 +5,11 @@ from sqlalchemy.orm import Session
 from app.models.enums import WalletTransactionStatus
 from app.models.wallet_transaction import WalletTransaction
 
+from app.services.settlement.settlement_asset_resolver import (
+    SettlementAssetResolver,
+)
 from app.services.settlement.settlement_result import (
+    SettlementExecutionStatus,
     SettlementResult,
 )
 from app.services.settlement.settlement_router import (
@@ -24,6 +28,8 @@ class SettlementOrchestrator:
     - validate the transaction
     - validate settlement execution state
     - resolve the governing treasury
+    - resolve the target settlement asset
+    - prevent execution when asset conversion is required
     - resolve the settlement handler
     - execute the selected handler
     - return a normalized SettlementResult
@@ -32,6 +38,7 @@ class SettlementOrchestrator:
     - create WalletTransactions
     - modify wallet balances
     - create ledger entries
+    - perform FX/token conversion
     - commit database transactions
     - rollback database transactions
     - implement rail-specific settlement logic
@@ -80,7 +87,6 @@ class SettlementOrchestrator:
         db: Session,
         transaction: WalletTransaction,
         destination: str,
-        amount: Decimal | None = None,
     ) -> SettlementResult:
 
         SettlementOrchestrator.validate_execution_state(
@@ -92,16 +98,14 @@ class SettlementOrchestrator:
                 "Settlement destination is required"
             )
 
-        if amount is None:
-            amount = Decimal(
-                str(transaction.amount)
-            )
-        else:
-            amount = Decimal(str(amount))
+        source_amount = Decimal(
+            str(transaction.amount)
+        )
 
-        if amount <= 0:
+        if source_amount <= 0:
             raise ValueError(
-                "Settlement amount must be greater than zero"
+                "Wallet transaction amount must be "
+                "greater than zero"
             )
 
         treasury = TreasuryResolver.resolve(
@@ -109,13 +113,90 @@ class SettlementOrchestrator:
             wallet_transaction=transaction,
         )
 
+        resolution = SettlementAssetResolver.resolve(
+            transaction=transaction,
+            treasury=treasury,
+        )
+
+        if resolution.conversion_required:
+            return SettlementResult(
+                status=SettlementExecutionStatus.FAILED,
+                error=(
+                    f"Settlement conversion required: "
+                    f"{resolution.source_amount} "
+                    f"{resolution.source_currency} -> "
+                    f"{resolution.target_asset.value}. "
+                    "No conversion rate/provider is configured."
+                ),
+                metadata={
+                    "source_currency": (
+                        resolution.source_currency
+                    ),
+                    "source_amount": str(
+                        resolution.source_amount
+                    ),
+                    "target_asset": (
+                        resolution.target_asset.value
+                    ),
+                    "target_amount": None,
+                    "conversion_required": True,
+                    "treasury_id": str(treasury.id),
+                    "treasury_denomination": (
+                        treasury.denomination.value
+                    ),
+                    "treasury_rail": (
+                        treasury.rail.value
+                    ),
+                },
+            )
+
+        target_amount = resolution.target_amount
+
+        if target_amount is None:
+            raise ValueError(
+                "Settlement target amount is required"
+            )
+
+        if target_amount <= 0:
+            raise ValueError(
+                "Settlement target amount must be "
+                "greater than zero"
+            )
+
         handler = SettlementRouter.resolve_handler(
             treasury
         )
 
-        return await handler.settle(
+        result = await handler.settle(
             db=db,
             transaction=transaction,
             destination=destination,
-            amount=amount,
+            amount=target_amount,
         )
+
+        result.metadata.setdefault(
+            "source_currency",
+            resolution.source_currency,
+        )
+
+        result.metadata.setdefault(
+            "source_amount",
+            str(resolution.source_amount),
+        )
+
+        result.metadata.setdefault(
+            "target_asset",
+            resolution.target_asset.value,
+        )
+
+        result.metadata.setdefault(
+            "target_amount",
+            str(target_amount),
+        )
+
+        result.metadata.setdefault(
+            "conversion_required",
+            False,
+        )
+
+        return result
