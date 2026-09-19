@@ -94,6 +94,11 @@ class WalletTransaction(Base):
         back_populates="transaction",
     )
 
+    treasury_ledger_entries = relationship(
+        "TreasuryLedger",
+        back_populates="transaction",
+    )
+
     settlement = relationship(
         "Settlement",
         back_populates="wallet_transaction",

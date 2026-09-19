@@ -5,8 +5,14 @@ from typing import Dict, Any
 from app.services.identity.session_manager import SessionManager
 
 from app.services.wallet.wallet_service import WalletService
+from app.services.wallet.wallet_balance_service import WalletBalanceService
+from app.services.wallet.contribution_service import ContributionService
+
+from app.services.treasury.treasury_service import TreasuryService
+from app.services.treasury.treasury_balance_service import TreasuryBalanceService
 
 from app.models.wallet import Wallet
+from app.models.stokvel import Stokvel
 
 
 class WalletEngine:
@@ -92,17 +98,77 @@ class WalletEngine:
                 member_account=member_account,
             )
 
-            if wallet is None:
+            wallet_balance = (
+                WalletBalanceService.get_balance(wallet)
+                if wallet is not None
+                else 0
+            )
+
+            selected_stokvel_id = (
+                SessionManager.selected_stokvel_id(session)
+            )
+
+            if not selected_stokvel_id:
                 return {
-                    "message": "Your wallet balance is R0.00.",
+                    "message": (
+                        "*Your Wallet*\\n"
+                        f"R{wallet_balance:,.2f} ZAR\n\n"
+                        "No stokvel is currently selected."
+                    ),
                     "type": "text",
                     "context_update": {},
                 }
 
+            stokvel = (
+                db.query(Stokvel)
+                .filter(Stokvel.id == selected_stokvel_id)
+                .first()
+            )
+
+            if stokvel is None:
+                return {
+                    "message": (
+                        "*Your Wallet*\n"
+                        f"R{wallet_balance:,.2f} ZAR\n\n"
+                        "The selected stokvel could not be found."
+                    ),
+                    "type": "text",
+                    "context_update": {},
+                }
+
+            treasury = (
+                TreasuryService.get_treasury_by_stokvel(
+                    db=db,
+                    stokvel_id=selected_stokvel_id,
+                )
+            )
+
+            if treasury is None:
+                return {
+                    "message": (
+                        "*Your Wallet*\n"
+                        f"R{wallet_balance:,.2f} ZAR\n\n"
+                        f"*{stokvel.name}*\n"
+                        "Treasury is not configured yet."
+                    ),
+                    "type": "text",
+                    "context_update": {},
+                }
+
+            treasury_balance = (
+                TreasuryBalanceService.get_balance(
+                    db=db,
+                    treasury=treasury,
+                )
+            )
+
             return {
                 "message": (
-                    f"Your wallet balance is "
-                    f"R{wallet.balance:,.2f}."
+                    "*Your Wallet*\n"
+                    f"R{wallet_balance:,.2f} ZAR\n\n"
+                    f"*{stokvel.name}*\n"
+                    f"Treasury: R{treasury_balance:,.2f} "
+                    f"{treasury.denomination.value}"
                 ),
                 "type": "text",
                 "context_update": {},
@@ -281,6 +347,11 @@ class WalletEngine:
                     stokvel_id=selected_stokvel_id,
                 )
 
+                transaction = ContributionService.complete_contribution(
+                    db=db,
+                    transaction=transaction,
+                )
+
             except ValueError as exc:
                 return {
                     "message": str(exc),
@@ -292,10 +363,9 @@ class WalletEngine:
 
             return {
                 "message": (
-                    f"Contribution request created for "
-                    f"R{amount:,.2f}.\n\n"
+                    f"Contribution of *R{amount:,.2f}* completed successfully.\n\n"
                     f"Reference: *{transaction.reference}*\n\n"
-                    "Status: *Pending*"
+                    "Status: *Completed*"
                 ),
                 "type": "text",
                 "context_update": {

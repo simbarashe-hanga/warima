@@ -16,6 +16,24 @@ class WalletBalanceService:
     The caller owns the database transaction.
     """
 
+
+    @staticmethod
+    def get_balance(
+        wallet: Wallet,
+    ) -> Decimal:
+        """
+        Return the current wallet balance.
+
+        This is a read-only operation.
+        """
+
+        if wallet is None:
+            raise ValueError("Wallet is required")
+
+        return Decimal(
+            str(wallet.balance or 0)
+        )
+
     @staticmethod
     def credit(
         db: Session,

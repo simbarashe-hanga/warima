@@ -85,3 +85,9 @@ class StokvelTreasury(Base):
         "Stokvel",
         back_populates="treasury",
     )
+
+    ledger_entries = relationship(
+        "TreasuryLedger",
+        back_populates="treasury",
+        cascade="all, delete-orphan",
+    )

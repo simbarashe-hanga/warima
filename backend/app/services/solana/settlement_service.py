@@ -133,6 +133,17 @@ class SettlementService:
             )
 
         # --------------------------------------------------
+        # Load Warima's Solana Treasury signer
+        # --------------------------------------------------
+
+        treasury = (
+            self.solana_service
+            .get_treasury_keypair()
+        )
+
+        source = str(treasury.pubkey())
+
+        # --------------------------------------------------
         # Check for an existing settlement.
         # --------------------------------------------------
 
@@ -189,6 +200,7 @@ class SettlementService:
                 wallet_transaction_id=transaction.id,
                 asset=SettlementAsset.SOL,
                 amount=amount_sol,
+                source=source,
                 destination=destination,
                 network=(
                     getattr(
@@ -206,6 +218,7 @@ class SettlementService:
 
         else:
             settlement.amount = amount_sol
+            settlement.source = source
             settlement.destination = destination
             settlement.status = SettlementStatus.PENDING
 
@@ -224,15 +237,6 @@ class SettlementService:
         )
 
         db.flush()
-
-        # --------------------------------------------------
-        # Load Warima's Solana Treasury signer.
-        # --------------------------------------------------
-
-        treasury = (
-            self.solana_service
-            .get_treasury_keypair()
-        )
 
         # --------------------------------------------------
         # Execute the on-chain transfer.

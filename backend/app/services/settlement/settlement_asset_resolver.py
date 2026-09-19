@@ -97,8 +97,14 @@ class SettlementAssetResolver:
                 source_currency=source_currency,
                 source_amount=source_amount,
                 target_asset=SettlementAsset.SOL,
-                target_amount=None,
-                conversion_required=True,
+                target_amount=(
+                    source_amount
+                    if source_currency == "SOL"
+                    else None
+                ),
+                conversion_required=(
+                    source_currency != "SOL"
+                ),
             )
 
         raise ValueError(

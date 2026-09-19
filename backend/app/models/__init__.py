@@ -21,3 +21,5 @@ from app.models.wallet_ledger import WalletLedger
 
 from app.models.settlement import Settlement
 from app.models.stokvel_treasury import StokvelTreasury
+
+from app.models.treasury_ledger import TreasuryLedger

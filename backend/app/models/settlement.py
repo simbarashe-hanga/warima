@@ -62,6 +62,11 @@ class Settlement(Base):
         nullable=False,
     )
 
+    source = Column(
+        String(100),
+        nullable=True,
+    )
+
     network = Column(
         String(50),
         nullable=False,

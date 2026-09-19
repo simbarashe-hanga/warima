@@ -17,6 +17,9 @@ from app.models.enums import (
     MembershipStatus,
 )
 
+from app.services.wallet.wallet_balance_service import WalletBalanceService
+from app.services.wallet.wallet_ledger_service import WalletLedgerService
+
 
 class WalletService:
     """
@@ -25,6 +28,115 @@ class WalletService:
     This service does not commit transactions.
     The worker owns the transaction boundary.
     """
+
+    @staticmethod
+    def get_or_create_wallet(
+        db: Session,
+        member_account: Any,
+    ) -> Wallet:
+        """
+        Retrieve the wallet belonging to a member account.
+
+        Creates the wallet if it does not exist.
+
+        This method does not commit
+        The caller owns the transaction boundary.
+        """
+
+        if member_account is None:
+            raise ValueError("Member account is required")
+
+        wallet = (
+            db.query(Wallet)
+            .filter(
+                Wallet.member_account_id == member_account.id,
+            )
+            .one_or_none()
+        )
+
+        if wallet is None:
+            wallet = Wallet(
+                member_account_id=member_account.id,
+                currency="ZAR",
+                balance=Decimal("0.00"),
+                status=WalletStatus.ACTIVE,
+            )
+
+            db.add(wallet)
+            db.flush()
+
+        if wallet.status != WalletStatus.ACTIVE:
+            raise ValueError("Wallet is not active")
+
+        return wallet
+
+    @staticmethod
+    def deposit(
+        db: Session,
+        member_account: Any,
+        amount,
+        reference: str | None = None,
+        description: str = "Wallet deposit",
+    ) -> WalletTransaction:
+        """
+        Credit funds into a member wallet.
+
+        Creates:
+        - a complete deposit transaction
+        - a wallet balance credit
+        - a CREDIT ledger entry
+
+        This method does not commit.
+        The caller owns the database transaction
+
+        This is currently intended for internal/test funding 
+        External payment-provider settlement will be added later
+        """
+
+        if member_account is None:
+            raise ValueError("Member account is required")
+
+        amount = Decimal(str(amount))
+
+        if amount <= 0:
+            raise ValueError("Deposit amount must be greater than zero")
+
+        wallet = WalletService.get_or_create_wallet(
+            db,
+            member_account,
+        )
+
+        if reference is None:
+            reference = f"DEP-{uuid.uuid4().hex[:12].upper()}"
+
+        transaction = WalletTransaction(
+            wallet_id=wallet.id,
+            stokvel_id=None,
+            transaction_type=WalletTransactionType.DEPOSIT,
+            amount=amount,
+            currency=wallet.currency,
+            status=WalletTransactionStatus.COMPLETED,
+            reference=reference,
+            description=description,
+        )
+
+        db.add(transaction)
+        db.flush()
+
+        WalletBalanceService.credit(
+            db,
+            wallet,
+            amount,
+        )
+
+        WalletLedgerService.record_credit(
+            db,
+            wallet,
+            amount,
+            transaction.id,
+        )
+
+        return transaction
 
     @staticmethod
     def create_contribution(
@@ -96,27 +208,10 @@ class WalletService:
         # Get or create wallet
         #----------------------------------------------------------------------
 
-        wallet = (
-            db.query(Wallet)
-            .filter(
-                Wallet.member_account_id == member_account.id,
-            )
-            .one_or_none()
+        wallet = WalletService.get_or_create_wallet(
+            db,
+            member_account,
         )
-
-        if wallet is None:
-            wallet = Wallet(
-                member_account_id=member_account.id,
-                currency="ZAR",
-                balance=Decimal("0.00"),
-                status=WalletStatus.ACTIVE,
-            )
-
-            db.add(wallet)
-            db.flush()
-
-        if wallet.status != WalletStatus.ACTIVE:
-            raise ValueError("Wallet is not active")
 
         #----------------------------------------------------------------------
         # Create transaction
