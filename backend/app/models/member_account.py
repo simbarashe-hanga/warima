@@ -93,3 +93,9 @@ class MemberAccount(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+
+    blockchain_accounts = relationship(
+        "BlockchainAccount",
+        back_populates="member_account",
+        cascade="all, delete-orphan",
+    )

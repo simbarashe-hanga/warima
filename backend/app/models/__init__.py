@@ -3,6 +3,7 @@ from app.models.user_identity import UserIdentity
 from app.models.user_session import UserSession
 
 from app.models.member_account import MemberAccount
+from app.models.blockchain_account import BlockchainAccount
 
 from app.models.stokvel import Stokvel
 from app.models.membership import Membership

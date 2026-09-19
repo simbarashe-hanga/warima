@@ -53,6 +53,11 @@ class StokvelTreasury(Base):
         nullable=True,
     )
 
+    blockchain_address = Column(
+        String(100),
+        nullable=True,
+    )
+
     strategy = Column(
         Enum(TreasuryStrategy),
         nullable=False,

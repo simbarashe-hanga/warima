@@ -2,6 +2,9 @@ from typing import Dict, Any
 
 from app.services.identity.session_manager import SessionManager
 from app.services.stokvel.stokvel_service import StokvelService
+from app.services.blockchain.blockchain_accounts.blockchain_account_service import (
+    BlockchainAccountService,
+)
 from app.models.enums import (
     MembershipRole,
     StokvelType,
@@ -79,6 +82,7 @@ class StokvelEngine:
                     session=session,
                     member_account=member_account,
                     service=service,
+                    db=db,
                 )
 
             if step == "awaiting_join_code":
@@ -87,6 +91,7 @@ class StokvelEngine:
                     session=session,
                     member_account=member_account,
                     service=service,
+                    db=db,
                 )
 
             if step == "awaiting_selection":
@@ -175,6 +180,24 @@ class StokvelEngine:
         }
 
     # -----------------------------------------------------------------
+    # Ensure Blockchain Account
+    # -----------------------------------------------------------------
+    def _ensure_blockchain_account(
+        self,
+        stokvel,
+        member_account_id,
+        db,
+    ):
+        if stokvel.stokvel_type != StokvelType.DIGITAL_ASSET:
+            return None
+
+        blockchain_service = BlockchainAccountService(db)
+
+        return blockchain_service.get_or_create_solana_account(
+            member_account_id=member_account_id,
+        )
+
+    # -----------------------------------------------------------------
     # Create - Name
     # -----------------------------------------------------------------
 
@@ -248,6 +271,7 @@ class StokvelEngine:
         session,
         member_account,
         service,
+        db,
     ):
 
         choice = message.strip()
@@ -298,6 +322,12 @@ class StokvelEngine:
             role=MembershipRole.OWNER,
         )
 
+        blockchain_account = self._ensure_blockchain_account(
+            stokvel=stokvel,
+            member_account_id=member_account.id,
+            db=db,
+        )
+
         service.activate_stokvel(stokvel.id)
 
         SessionManager.finish_stokvel(session)
@@ -329,6 +359,7 @@ class StokvelEngine:
         session,
         member_account,
         service,
+        db,
     ):
 
         code = message.strip().upper()
@@ -378,6 +409,12 @@ class StokvelEngine:
             member_account_id=member_account.id,
             stokvel_id=stokvel.id,
             role=MembershipRole.MEMBER,
+        )
+
+        blockchain_account = self._ensure_blockchain_account(
+            stokvel=stokvel,
+            member_account_id=member_account.id,
+            db=db,
         )
 
         SessionManager.set_selected_stokvel(

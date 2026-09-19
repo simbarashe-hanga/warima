@@ -1,0 +1,132 @@
+from sqlalchemy.orm import Session
+
+from app.models.blockchain_account import BlockchainAccount
+from app.models.enums import (
+    BlockchainAccountStatus,
+    BlockchainAccountType,
+    BlockchainChain,
+)
+
+from app.services.solana.solana_service import SolanaService
+from app.services.solana.accounts.solana_account_provider import (
+    SolanaAccountProvider,
+)
+
+
+class BlockchainAccountService:
+    """
+    Manages chain-specific blockchain accounts belonging to
+    Warima MemberAccounts.
+
+    BlockchainAccount stores the public blockchain identity.
+
+    Private signing material is managed by the account provider
+    and is never stored in the database.
+    """
+
+    def __init__(
+        self,
+        db: Session,
+        solana_service: SolanaService | None = None,
+        solana_account_provider: SolanaAccountProvider | None = None,
+    ):
+        self.db = db
+
+        self.solana_service = (
+            solana_service
+            or SolanaService()
+        )
+
+        self.solana_account_provider = (
+            solana_account_provider
+            or SolanaAccountProvider()
+        )
+
+    def get_account(
+        self,
+        member_account_id,
+        chain: BlockchainChain,
+        network: str,
+    ) -> BlockchainAccount | None:
+        """
+        Return the active blockchain account for a member,
+        chain and network.
+        """
+
+        return (
+            self.db.query(BlockchainAccount)
+            .filter(
+                BlockchainAccount.member_account_id
+                == member_account_id,
+                BlockchainAccount.chain == chain,
+                BlockchainAccount.network == network,
+                BlockchainAccount.status
+                == BlockchainAccountStatus.ACTIVE,
+            )
+            .one_or_none()
+        )
+
+    def get_or_create_solana_account(
+        self,
+        member_account_id,
+    ) -> BlockchainAccount:
+        """
+        Return the member's Solana account for the configured
+        Solana network, creating it when necessary.
+        """
+
+        network = self.solana_service.network
+
+        existing = self.get_account(
+            member_account_id=member_account_id,
+            chain=BlockchainChain.SOLANA,
+            network=network,
+        )
+
+        if existing:
+            return existing
+
+        address, _keypair = (
+            self.solana_account_provider.create_account()
+        )
+
+        account = BlockchainAccount(
+            member_account_id=member_account_id,
+            chain=BlockchainChain.SOLANA,
+            network=network,
+            address=address,
+            account_type=BlockchainAccountType.MANAGED,
+            status=BlockchainAccountStatus.ACTIVE,
+        )
+
+        self.db.add(account)
+        self.db.flush()
+
+        return account
+
+    def get_solana_signer(
+        self,
+        account: BlockchainAccount,
+    ):
+        """
+        Return the signing key for a managed Solana account.
+        """
+
+        if account.chain != BlockchainChain.SOLANA:
+            raise ValueError(
+                "Blockchain account is not a Solana account"
+            )
+
+        if account.account_type != BlockchainAccountType.MANAGED:
+            raise ValueError(
+                "External blockchain accounts cannot be signed by Warima"
+            )
+
+        if account.status != BlockchainAccountStatus.ACTIVE:
+            raise ValueError(
+                "Blockchain account is not active"
+            )
+
+        return self.solana_account_provider.get_signer(
+            account.address
+        )

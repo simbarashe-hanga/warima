@@ -120,3 +120,16 @@ class TreasuryReturnSource(str, Enum):
     ON_CHAIN = "ON_CHAIN"
     MEAT_SALES = "MEAT_SALES"
     CASH_RETURNS = "CASH_RETURNS"
+
+class BlockchainChain(str, Enum):
+    SOLANA = "SOLANA"
+    EVM = "EVM"
+
+class BlockchainAccountType(str, Enum):
+    MANAGED = "MANAGED"
+    EXTERNAL = "EXTERNAL"
+
+class BlockchainAccountStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    CLOSED = "CLOSED"

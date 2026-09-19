@@ -27,6 +27,13 @@ class SolanaService:
 
         return Keypair.from_base58_string(private_key)
 
+    def get_treasury_address(self) -> str:
+        """Return the public address of the Warima Solana treasury."""
+
+        return str(
+            self.get_treasury_keypair().pubkey()
+        )
+
     async def get_client(self) -> AsyncClient:
         """Create a Solana RPC client."""
         return AsyncClient(self.rpc_url)

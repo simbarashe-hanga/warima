@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.models.stokvel import Stokvel
 from app.models.stokvel_treasury import StokvelTreasury
+from app.services.solana.solana_service import SolanaService
+
 from app.models.enums import (
     TreasuryDenomination,
     TreasuryRail,
@@ -161,6 +163,19 @@ class TreasuryService:
             return_source=return_source,
         )
 
+        blockchain_address = None
+
+        resolved_rail = (
+            TreasuryRail(rail)
+            if isinstance(rail, str)
+            else rail
+        )
+
+        if resolved_rail == TreasuryRail.SOLANA:
+            blockchain_address = (
+                SolanaService().get_treasury_address()
+            )
+
         treasury = StokvelTreasury(
             id=uuid.uuid4(),
             stokvel_id=stokvel.id,
@@ -175,6 +190,7 @@ class TreasuryService:
                 else rail
             ),
             network=network,
+            blockchain_address=blockchain_address,
             strategy=(
                 TreasuryStrategy(strategy)
                 if isinstance(strategy, str)
