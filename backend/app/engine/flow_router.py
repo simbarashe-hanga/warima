@@ -813,6 +813,7 @@ class FlowRouter:
                     intent=intent,
                     session=session,
                     member_context=member_context,
+                    db=db,
                 )
 
         if flow == "portfolio":

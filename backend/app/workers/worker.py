@@ -31,6 +31,7 @@ from app.engine.wallet_engine import WalletEngine
 from app.services.ai.agent_service import AgentService
 
 from app.engine.stokvel_engine import StokvelEngine
+from app.engine.investment_engine import InvestmentEngine
 
 
 load_dotenv()
@@ -93,10 +94,12 @@ async def process_message(db, event):
     agent_service = AgentService()
     wallet_engine = WalletEngine()
     stokvel_engine = StokvelEngine()
+    investment_engine = InvestmentEngine()
 
     flow_router = FlowRouter(
         wallet_engine=wallet_engine,
         stokvel_engine=stokvel_engine,
+        investment_engine=investment_engine,
         agent=agent_service,
     )
 

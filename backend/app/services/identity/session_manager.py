@@ -540,9 +540,9 @@ class SessionManager:
             cls.finish_wallet(session)
 
         if active_flow != "stokvel":
-            if active_flow == "wallet":
-                # Preserve selected stokvel when handling contribution
-                # processing to WalletEngine
+            if active_flow in {"wallet", "investment"}:
+                # Preserve selected stokvel when handing control
+                # to another flow that operates on the selected stokvel.
                 cls.pause_stokvel(session)
             else:
                 cls.finish_stokvel(session)
