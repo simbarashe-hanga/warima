@@ -108,7 +108,6 @@ class SettlementService:
         transaction: WalletTransaction,
         destination: str,
         amount_sol: Decimal,
-        sender=None,
     ) -> dict[str, Any]:
         """
         Settle a financial transaction from the
@@ -134,22 +133,15 @@ class SettlementService:
             )
 
         # --------------------------------------------------
-        # Resolve the Solana settlement source.
-        #
-        # Default behavior remains:
-        # Warima Treasury -> destination
-        #
-        # On-chain contributions may provide:
-        # Member -> Stokvel Treasury
+        # Load Warima's Solana Treasury signer
         # --------------------------------------------------
 
-        if sender is None:
-            sender = (
-                self.solana_service
-                .get_treasury_keypair()
-            )
+        treasury = (
+            self.solana_service
+            .get_treasury_keypair()
+        )
 
-        source = str(sender.pubkey())
+        source = str(treasury.pubkey())
 
         # --------------------------------------------------
         # Check for an existing settlement.
@@ -251,7 +243,7 @@ class SettlementService:
         # --------------------------------------------------
 
         result = await self.solana_service.send_sol(
-            sender=sender,
+            sender=treasury,
             recipient=destination,
             amount_sol=float(amount_sol),
         )

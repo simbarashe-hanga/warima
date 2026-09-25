@@ -314,15 +314,6 @@ class FlowRouter:
         }:
             return "contribute"
 
-        if text in {
-            "solana",
-            "solana transfer",
-            "solana settlement",
-            "send sol",
-            "send solana",
-        }:
-            return "solana"
-
         # --------------------------------------------------------
         # KYC
         # --------------------------------------------------------
@@ -541,24 +532,6 @@ class FlowRouter:
                 member_context=member_context,
                 db=db,
             )
-
-        if command == "solana":
-
-            return await self._route_flow(
-                flow="wallet",
-                message=message,
-                intent={
-                    "intent": "wallet.solana",
-                    "domain": "wallet",
-                    "action": "solana",
-                    "parameters": {},
-                },
-                session=session,
-                session_context=session_context,
-                member_context=member_context,
-                db=db,
-            )
-
 
         # --------------------------------------------------------
         # KYC

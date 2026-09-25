@@ -211,7 +211,6 @@ class WalletEngine:
             return await self._handle_amount_input(
                 session,
                 message,
-                db,
             )
 
         if step == "awaiting_confirmation":
@@ -238,7 +237,6 @@ class WalletEngine:
         self,
         session,
         message,
-        db,
     ):
         """
         Handle contribution amount input.
@@ -283,41 +281,11 @@ class WalletEngine:
             "awaiting_confirmation",
         )
 
-        selected_stokvel_id = SessionManager.selected_stokvel_id(
-            session
-        )
-
-        is_solana_contribution = False
-
-        if selected_stokvel_id:
-            from app.services.treasury.treasury_service import TreasuryService
-            from app.models.enums import TreasuryDenomination
-
-            treasury = TreasuryService.get_treasury_by_stokvel(
-                db,
-                selected_stokvel_id,
-            )
-
-            if (
-                treasury is not None
-                and treasury.denomination == TreasuryDenomination.SOL
-                and treasury.rail.value == "SOLANA"
-            ):
-                is_solana_contribution = True
-
-        if is_solana_contribution:
-            confirmation_message = (
-                f"Confirm {amount:,.4f} SOL?\n\n"
-                "Reply 1 to confirm or 2 to cancel."
-            )
-        else:
-            confirmation_message = (
+        return {
+            "message": (
                 f"Confirm R{amount:,.2f}?\n\n"
                 "Reply 1 to confirm or 2 to cancel."
-            )
-
-        return {
-            "message": confirmation_message,
+            ),
             "type": "text",
             "context_update": {
                 "wallet": {
@@ -455,9 +423,9 @@ class WalletEngine:
                         destination=treasury.blockchain_address,
                     )
 
-                    if not result.succeeded:
+                    if result.status != "COMPLETED":
                         raise ValueError(
-                            result.error
+                            result.error_message
                             or "Solana contribution settlement failed."
                         )
 

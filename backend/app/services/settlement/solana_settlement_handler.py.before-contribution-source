@@ -1,11 +1,7 @@
 from decimal import Decimal
 
-from app.models.enums import WalletTransactionType
 from app.models.wallet_transaction import WalletTransaction
 
-from app.services.blockchain.blockchain_accounts.blockchain_account_service import (
-    BlockchainAccountService,
-)
 from app.services.settlement.settlement_handler import (
     SettlementHandler,
 )
@@ -49,55 +45,11 @@ class SolanaSettlementHandler(SettlementHandler):
         Solana SettlementService.
         """
 
-        sender = None
-
-        # --------------------------------------------------
-        # On-chain contribution:
-        #
-        # Member -> Stokvel Treasury
-        #
-        # The generic settlement layer remains unaware of
-        # blockchain account custody. The Solana handler
-        # resolves the member's Solana signer here.
-        # --------------------------------------------------
-
-        if (
-            transaction.transaction_type
-            == WalletTransactionType.CONTRIBUTION
-        ):
-            if transaction.wallet is None:
-                raise ValueError(
-                    "Contribution wallet could not be found"
-                )
-
-            member_account_id = (
-                transaction.wallet.member_account_id
-            )
-
-            blockchain_account_service = (
-                BlockchainAccountService(db=db)
-            )
-
-            blockchain_account = (
-                blockchain_account_service
-                .get_or_create_solana_account(
-                    member_account_id
-                )
-            )
-
-            sender = (
-                blockchain_account_service
-                .get_solana_signer(
-                    blockchain_account
-                )
-            )
-
         result = await self.settlement_service.settle_to_solana(
             db=db,
             transaction=transaction,
             destination=destination,
             amount_sol=amount,
-            sender=sender,
         )
 
         if result.get("success"):

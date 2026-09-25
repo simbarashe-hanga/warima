@@ -20,7 +20,6 @@ from app.models.stokvel import Stokvel
 from app.models.enums import (
     WalletTransactionStatus,
     WalletTransactionType,
-    TreasuryDenomination,
 )
 
 from app.models.wallet_transaction import WalletTransaction
@@ -211,7 +210,6 @@ class WalletEngine:
             return await self._handle_amount_input(
                 session,
                 message,
-                db,
             )
 
         if step == "awaiting_confirmation":
@@ -238,7 +236,6 @@ class WalletEngine:
         self,
         session,
         message,
-        db,
     ):
         """
         Handle contribution amount input.
@@ -283,41 +280,11 @@ class WalletEngine:
             "awaiting_confirmation",
         )
 
-        selected_stokvel_id = SessionManager.selected_stokvel_id(
-            session
-        )
-
-        is_solana_contribution = False
-
-        if selected_stokvel_id:
-            from app.services.treasury.treasury_service import TreasuryService
-            from app.models.enums import TreasuryDenomination
-
-            treasury = TreasuryService.get_treasury_by_stokvel(
-                db,
-                selected_stokvel_id,
-            )
-
-            if (
-                treasury is not None
-                and treasury.denomination == TreasuryDenomination.SOL
-                and treasury.rail.value == "SOLANA"
-            ):
-                is_solana_contribution = True
-
-        if is_solana_contribution:
-            confirmation_message = (
-                f"Confirm {amount:,.4f} SOL?\n\n"
-                "Reply 1 to confirm or 2 to cancel."
-            )
-        else:
-            confirmation_message = (
+        return {
+            "message": (
                 f"Confirm R{amount:,.2f}?\n\n"
                 "Reply 1 to confirm or 2 to cancel."
-            )
-
-        return {
-            "message": confirmation_message,
+            ),
             "type": "text",
             "context_update": {
                 "wallet": {
@@ -342,20 +309,43 @@ class WalletEngine:
         """
         Handle contribution confirmation.
 
-        ZAR contributions use the existing wallet/treasury accounting
-        flow.
-
-        SOL contributions to an on-chain stokvel use the generic
-        settlement layer and settle from the member's Solana account
-        to the stokvel treasury address.
+        Creates a pending wallet transaction.
+        Does not credit the wallet or execute blockchain operations.
         """
         confirmation = message.strip().lower()
 
         selected_stokvel_id = (
             SessionManager.selected_stokvel_id(session)
         )
-
+        
         amount = SessionManager.wallet_amount(session)
+
+        stokvel_name = None
+
+        if selected_stokvel_id and db is not None:
+            from app.services.stokvel.stokvel_service import StokvelService
+
+            stokvel_service = StokvelService(db)
+            stokvel = stokvel_service.get_stokvel(
+                selected_stokvel_id
+            )
+
+            if stokvel:
+                stokvel_name = stokvel.name
+
+            if stokvel_name:
+                message = (
+                    f"Please confirm your contribution of "
+                    f"*R{amount:.2f}* to *{stokvel_name}*.\n\n"
+                    "Reply *1* to confirm or *2* to cancel."
+                )
+            else:
+                message = (
+                    f"Please confirm your contribution of "
+                    f"*R{amount:.2f}*.\n\n"
+                    "Reply *1* to confirm or *2* to cancel."
+                )
+
 
         if amount is None:
             SessionManager.finish_wallet(session)
@@ -373,56 +363,6 @@ class WalletEngine:
                 },
             }
 
-        stokvel_name = None
-        treasury = None
-        is_solana_contribution = False
-
-        if selected_stokvel_id and db is not None:
-            from app.services.stokvel.stokvel_service import StokvelService
-
-            stokvel_service = StokvelService(db)
-            stokvel = stokvel_service.get_stokvel(
-                selected_stokvel_id
-            )
-
-            if stokvel:
-                stokvel_name = stokvel.name
-
-            treasury = TreasuryService.get_treasury_by_stokvel(
-                db,
-                selected_stokvel_id,
-            )
-
-            if (
-                treasury is not None
-                and treasury.denomination == TreasuryDenomination.SOL
-                and treasury.rail.value == "SOLANA"
-            ):
-                is_solana_contribution = True
-
-        if is_solana_contribution:
-            confirmation_message = (
-                f"Please confirm your contribution of "
-                f"*{amount:.4f} SOL*"
-            )
-
-        else:
-            confirmation_message = (
-                f"Please confirm your contribution of "
-                f"*R{amount:.2f}*"
-            )
-
-        if stokvel_name:
-            confirmation_message += (
-                f" to *{stokvel_name}*.\n\n"
-                "Reply *1* to confirm or *2* to cancel."
-            )
-        else:
-            confirmation_message += (
-                ".\n\n"
-                "Reply *1* to confirm or *2* to cancel."
-            )
-
         if confirmation in {"1", "yes", "y"}:
             member_account = member_context.get("member_account")
 
@@ -430,50 +370,17 @@ class WalletEngine:
                 raise RuntimeError("Database session is required")
 
             try:
-                if is_solana_contribution:
-                    if treasury is None:
-                        raise ValueError(
-                            "The selected digital stokvel has no treasury."
-                        )
+                transaction = WalletService.create_contribution(
+                    db=db,
+                    member_account=member_account,
+                    amount=amount,
+                    stokvel_id=selected_stokvel_id,
+                )
 
-                    if not treasury.blockchain_address:
-                        raise ValueError(
-                            "The selected digital stokvel has no blockchain treasury address."
-                        )
-
-                    transaction = WalletService.create_contribution(
-                        db=db,
-                        member_account=member_account,
-                        amount=amount,
-                        stokvel_id=selected_stokvel_id,
-                        currency="SOL",
-                    )
-
-                    result = await SettlementOrchestrator.settle(
-                        db=db,
-                        transaction=transaction,
-                        destination=treasury.blockchain_address,
-                    )
-
-                    if not result.succeeded:
-                        raise ValueError(
-                            result.error
-                            or "Solana contribution settlement failed."
-                        )
-
-                else:
-                    transaction = WalletService.create_contribution(
-                        db=db,
-                        member_account=member_account,
-                        amount=amount,
-                        stokvel_id=selected_stokvel_id,
-                        currency="ZAR",
-                    )
-
-                    transaction = ContributionService.complete_contribution(
-                        db=db,
-                        transaction=transaction,
-                    )
+                transaction = ContributionService.complete_contribution(
+                    db=db,
+                    transaction=transaction,
+                )
 
             except ValueError as exc:
                 return {
@@ -483,23 +390,6 @@ class WalletEngine:
                 }
 
             SessionManager.finish_wallet(session)
-
-            if is_solana_contribution:
-                return {
-                    "message": (
-                        f"Contribution of *{amount:,.4f} SOL* "
-                        f"to *{stokvel_name or 'digital stokvel'}* "
-                        "completed successfully.\n\n"
-                        f"Reference: *{transaction.reference}*\n\n"
-                        "Status: *Completed*"
-                    ),
-                    "type": "text",
-                    "context_update": {
-                        "wallet": {
-                            "active": False,
-                        }
-                    },
-                }
 
             return {
                 "message": (

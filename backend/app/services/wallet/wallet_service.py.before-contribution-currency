@@ -144,7 +144,6 @@ class WalletService:
         member_account: Any,
         amount,
         stokvel_id=None,
-        currency="ZAR",
     ) -> WalletTransaction:
         """
         Create a pending contribution request.
@@ -225,7 +224,7 @@ class WalletService:
             stokvel_id=stokvel_id,
             transaction_type=WalletTransactionType.CONTRIBUTION,
             amount=amount,
-            currency=currency,
+            currency="ZAR",
             status=WalletTransactionStatus.PENDING,
             reference=reference,
             description="Community savings contribution request",

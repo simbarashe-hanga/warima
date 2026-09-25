@@ -116,8 +116,7 @@ class BlockchainAccountService:
         signing key is no longer available after a worker
         restart.
 
-        The existing BlockchainAccount row is reused because
-        member_account_id + chain + network is unique.
+        The previous account is retained as inactive.
         """
 
         network = self.solana_service.network
@@ -128,22 +127,27 @@ class BlockchainAccountService:
             network=network,
         )
 
-        if existing is None:
-            raise ValueError(
-                "No existing Solana account was found for this member"
-            )
+        if existing:
+            existing.status = BlockchainAccountStatus.SUSPENDED
+            self.db.flush()
 
         address, _keypair = (
             self.solana_account_provider.create_account()
         )
 
-        existing.address = address
-        existing.account_type = BlockchainAccountType.MANAGED
-        existing.status = BlockchainAccountStatus.ACTIVE
+        account = BlockchainAccount(
+            member_account_id=member_account_id,
+            chain=BlockchainChain.SOLANA,
+            network=network,
+            address=address,
+            account_type=BlockchainAccountType.MANAGED,
+            status=BlockchainAccountStatus.ACTIVE,
+        )
 
+        self.db.add(account)
         self.db.flush()
 
-        return existing
+        return account
 
     def get_solana_signer(
         self,
