@@ -102,3 +102,10 @@ class StokvelInvestment(Base):
         "TreasuryLedger",
         back_populates="investment",
     )
+
+    stocklana_execution = relationship(
+        "StocklanaExecution",
+        back_populates="investment",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )

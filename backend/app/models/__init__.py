@@ -29,3 +29,5 @@ from app.models.treasury_ledger import TreasuryLedger
 from app.models.investment_asset import InvestmentAsset
 from app.models.stokvel_investment import StokvelInvestment
 from app.models.investment_allocation import InvestmentAllocation
+
+from app.models.stocklana_execution import StocklanaExecution
