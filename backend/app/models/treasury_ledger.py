@@ -1,6 +1,14 @@
 import uuid
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Numeric, String
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Numeric,
+    String,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -11,6 +19,13 @@ from app.models.enums import WalletLedgerEntryType
 
 class TreasuryLedger(Base):
     __tablename__ = "treasury_ledger"
+
+    __table_args__ = (
+        CheckConstraint(
+            "transaction_id IS NOT NULL OR investment_id IS NOT NULL",
+            name="ck_treasury_ledger_has_source",
+        ),
+    )
 
     id = Column(
         UUID(as_uuid=True),
@@ -28,7 +43,14 @@ class TreasuryLedger(Base):
     transaction_id = Column(
         UUID(as_uuid=True),
         ForeignKey("wallet_transactions.id"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+
+    investment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("stokvel_investments.id"),
+        nullable=True,
         index=True,
     )
 
@@ -61,5 +83,10 @@ class TreasuryLedger(Base):
 
     transaction = relationship(
         "WalletTransaction",
+        back_populates="treasury_ledger_entries",
+    )
+
+    investment = relationship(
+        "StokvelInvestment",
         back_populates="treasury_ledger_entries",
     )

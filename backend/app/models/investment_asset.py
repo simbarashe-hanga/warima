@@ -1,26 +1,19 @@
 import uuid
 
-from sqlalchemy import (
-    Column,
-    DateTime,
-    Enum,
-    String,
-    Text,
-)
-
+from sqlalchemy import Column, DateTime, Enum, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
-
 from app.models.enums import (
-    StokvelStatus,
-    StokvelType,
+    InvestmentAssetStatus,
+    InvestmentAssetType,
 )
 
-class Stokvel(Base):
-    __tablename__="stokvels"
+
+class InvestmentAsset(Base):
+    __tablename__ = "investment_assets"
 
     id = Column(
         UUID(as_uuid=True),
@@ -28,33 +21,38 @@ class Stokvel(Base):
         default=uuid.uuid4,
     )
 
-    name = Column(
-        String(120),
-        nullable=False,
-    )
-
-    join_code = Column(
-        String(12),
+    symbol = Column(
+        String(20),
         nullable=False,
         unique=True,
         index=True,
     )
 
-    description = Column(
-        Text,
-        nullable=True,
+    name = Column(
+        String(120),
+        nullable=False,
     )
 
-    stokvel_type = Column(
-        Enum(StokvelType),
+    asset_type = Column(
+        Enum(InvestmentAssetType),
         nullable=False,
-        default=StokvelType.SAVINGS,
+    )
+
+    price = Column(
+        Numeric(18, 2),
+        nullable=False,
+    )
+
+    currency = Column(
+        String(3),
+        nullable=False,
+        default="ZAR",
     )
 
     status = Column(
-        Enum(StokvelStatus),
+        Enum(InvestmentAssetStatus),
         nullable=False,
-        default=StokvelStatus.PENDING,
+        default=InvestmentAssetStatus.ACTIVE,
     )
 
     created_at = Column(
@@ -70,21 +68,8 @@ class Stokvel(Base):
         nullable=False,
     )
 
-    memberships = relationship(
-        "Membership",
-        back_populates="stokvel",
-        cascade="all, delete-orphan",
-    )
-
-    treasury = relationship(
-        "StokvelTreasury",
-        back_populates="stokvel",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
-
     investments = relationship(
         "StokvelInvestment",
-        back_populates="stokvel",
+        back_populates="investment_asset",
         cascade="all, delete-orphan",
     )

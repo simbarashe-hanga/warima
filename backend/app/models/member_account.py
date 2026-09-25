@@ -9,7 +9,7 @@ from sqlalchemy import (
 )
 
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import  relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
@@ -102,6 +102,12 @@ class MemberAccount(Base):
 
     blockchain_accounts = relationship(
         "BlockchainAccount",
+        back_populates="member_account",
+        cascade="all, delete-orphan",
+    )
+
+    investment_allocations = relationship(
+        "InvestmentAllocation",
         back_populates="member_account",
         cascade="all, delete-orphan",
     )

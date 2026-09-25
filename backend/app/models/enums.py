@@ -70,6 +70,7 @@ class WalletTransactionType(str, Enum):
     DEPOSIT = "DEPOSIT"
     WITHDRAWAL = "WITHDRAWAL"
     TRANSFER = "TRANSFER"
+    INVESTMENT = "INVESTMENT"
 
 class WalletTransactionStatus(str, Enum):
     PENDING = "PENDING"
@@ -141,3 +142,25 @@ class PaymentStatus(str, Enum):
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
     REFUNDED = "REFUNDED"
+
+class InvestmentAssetType(str, Enum):
+    TOKENIZED_STOCK = "TOKENIZED_STOCK"
+
+class InvestmentAssetStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+
+class StokvelInvestmentStatus(str, Enum):
+    PENDING = "PENDING"
+    ACTIVE = "ACTIVE"
+    MATURED = "MATURED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+class InvestmentOrderStatus(str, Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
