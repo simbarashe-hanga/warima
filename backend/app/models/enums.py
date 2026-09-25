@@ -133,3 +133,11 @@ class BlockchainAccountStatus(str, Enum):
     ACTIVE = "ACTIVE"
     SUSPENDED = "SUSPENDED"
     CLOSED = "CLOSED"
+
+class PaymentStatus(str, Enum):
+    CREATED = "CREATED"
+    PENDING = "PENDING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    REFUNDED = "REFUNDED"

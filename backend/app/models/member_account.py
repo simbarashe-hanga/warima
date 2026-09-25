@@ -94,6 +94,12 @@ class MemberAccount(Base):
         cascade="all, delete-orphan",
     )
 
+    payments = relationship(
+        "Payment",
+        back_populates="member_account",
+        cascade="all, delete-orphan",
+    )
+
     blockchain_accounts = relationship(
         "BlockchainAccount",
         back_populates="member_account",

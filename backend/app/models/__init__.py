@@ -19,7 +19,10 @@ from app.models.wallet import Wallet
 from app.models.wallet_transaction import WalletTransaction
 from app.models.wallet_ledger import WalletLedger
 
+from app.models.payment import Payment
+
 from app.models.settlement import Settlement
 from app.models.stokvel_treasury import StokvelTreasury
 
 from app.models.treasury_ledger import TreasuryLedger
+
