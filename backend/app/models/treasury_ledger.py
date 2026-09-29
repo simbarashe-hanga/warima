@@ -60,7 +60,7 @@ class TreasuryLedger(Base):
     )
 
     amount = Column(
-        Numeric(18, 2),
+        Numeric(18, 9),
         nullable=False,
     )
 

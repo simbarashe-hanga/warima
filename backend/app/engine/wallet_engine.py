@@ -33,6 +33,9 @@ from app.services.settlement.settlement_orchestrator import (
     SettlementOrchestrator,
 )
 
+from app.services.payments.payment_service import PaymentService
+from app.services.payments.payment_registry import payment_provider_registry
+
 
 
 class WalletEngine:
@@ -93,6 +96,9 @@ class WalletEngine:
         if intent_name == "wallet.solana":
             return self._start_solana_flow(session)
 
+        if intent_name == "wallet.deposit":
+            return self._start_deposit_flow(session)
+
         if intent_name == "wallet.balance":
             member_account = member_context.get("member_account")
 
@@ -134,7 +140,7 @@ class WalletEngine:
             if not selected_stokvel_id:
                 return {
                     "message": (
-                        "*Your Wallet*\\n"
+                        "*Your Wallet*\n"
                         f"R{wallet_balance:,.2f} ZAR\n\n"
                         "No stokvel is currently selected."
                     ),
@@ -207,6 +213,22 @@ class WalletEngine:
                 db,
             )
 
+        if step == "deposit_awaiting_amount":
+            return await self._handle_deposit_amount(
+                session,
+                message,
+                member_context,
+                db,
+            )
+
+        if step == "deposit_awaiting_email":
+            return await self._handle_deposit_email(
+                session,
+                message,
+                member_context,
+                db,
+            )
+
         if step == "awaiting_amount":
             return await self._handle_amount_input(
                 session,
@@ -229,6 +251,416 @@ class WalletEngine:
             )
 
         return self._start_wallet_flow(session)
+
+    # ------------------------------------------------------------------
+    # DEPOSIT
+    # ------------------------------------------------------------------
+
+    def _start_deposit_flow(
+        self,
+        session,
+    ):
+        """
+        Start the external wallet funding flow.
+
+        The actual wallet credit only happens after the payment
+        provider confirms successful payment through the webhook.
+        """
+
+        SessionManager.start_wallet(
+            session,
+            step="deposit_awaiting_amount",
+        )
+
+        return {
+            "message": (
+                "How much would you like to deposit into your wallet?\n\n"
+                "Enter the amount in ZAR."
+            ),
+            "type": "text",
+            "context_update": {
+                "wallet": {
+                    "active": True,
+                    "step": "deposit_awaiting_amount",
+                    "amount": None,
+                }
+            },
+        }
+
+    # ------------------------------------------------------------------
+    # DEPOSIT AMOUNT
+    # ------------------------------------------------------------------
+
+    async def _handle_deposit_amount(
+        self,
+        session,
+        message,
+        member_context,
+        db,
+    ):
+        """
+        Initialize an external wallet funding payment.
+
+        This creates a Paystack payment but does NOT credit the wallet.
+        Wallet funding happens only after the verified provider webhook.
+        """
+
+        if db is None:
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": (
+                    "I'm unable to start the deposit right now. "
+                    "Please try again."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        member_account = member_context.get("member_account")
+
+        if member_account is None:
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": (
+                    "I couldn't find your member account. "
+                    "Please complete your account setup first."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        try:
+            amount = Decimal(message.strip())
+        except (ValueError, AttributeError):
+            return {
+                "message": "Please enter a valid ZAR amount.",
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": True,
+                        "step": "deposit_awaiting_amount",
+                    }
+                },
+            }
+
+        if amount <= 0:
+            return {
+                "message": "Please enter an amount greater than R0.",
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": True,
+                        "step": "deposit_awaiting_amount",
+                    }
+                },
+            }
+
+        user = member_account.user
+
+        if user is None:
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": (
+                    "I couldn't find your user profile. "
+                    "Please try again."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        user_email = (
+            user.email.strip()
+            if user.email
+            else None
+        )
+
+        if not user_email:
+            SessionManager.set_wallet_amount(
+                session,
+                str(amount),
+            )
+
+            SessionManager.set_wallet_step(
+                session,
+                "deposit_awaiting_email",
+            )
+
+            return {
+                "message": (
+                    "I need your email address to create the "
+                    "secure payment.\n\n"
+                    "Please enter your email address."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": True,
+                        "step": "deposit_awaiting_email",
+                        "amount": str(amount),
+                    }
+                },
+            }
+
+        try:
+            provider = payment_provider_registry.get("paystack")
+
+            payment = PaymentService.create_payment(
+                db=db,
+                provider=provider,
+                member_account=member_account,
+                amount=amount,
+                currency="ZAR",
+                email=user_email,
+            )
+
+            db.commit()
+
+        except ValueError as exc:
+            db.rollback()
+
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": str(exc),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        except Exception:
+            db.rollback()
+
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": (
+                    "I couldn't create the payment right now. "
+                    "Please try again."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        SessionManager.finish_wallet(session)
+
+        if not payment.payment_url:
+            return {
+                "message": (
+                    "The payment was created, but no checkout link "
+                    "was returned. Please try again."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        return {
+            "message": (
+                f"Your *R{amount:,.2f}* wallet deposit is ready.\n\n"
+                "Complete your payment here:\n"
+                f"{payment.payment_url}\n\n"
+                "Your wallet will be credited after the payment is "
+                "successfully confirmed."
+            ),
+            "type": "text",
+            "context_update": {
+                "wallet": {
+                    "active": False,
+                }
+            },
+        }
+
+    # ------------------------------------------------------------------
+    # DEPOSIT EMAIL
+    # ------------------------------------------------------------------
+
+    async def _handle_deposit_email(
+        self,
+        session,
+        message,
+        member_context,
+        db,
+    ):
+        """
+        Complete deposit payment initialization using a
+        payment-specific email address.
+
+        The email is used only for payment initialization.
+        It does not update the user's profile.
+        """
+
+        if db is None:
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": (
+                    "I'm unable to start the deposit right now. "
+                    "Please try again."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        member_account = member_context.get("member_account")
+
+        if member_account is None:
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": (
+                    "I couldn't find your member account. "
+                    "Please complete your account setup first."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        amount = SessionManager.wallet_amount(session)
+
+        if amount is None:
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": (
+                    "I couldn't find your deposit amount. "
+                    "Please type 'deposit' to start again."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        amount = Decimal(str(amount))
+
+        email = message.strip().lower()
+
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return {
+                "message": (
+                    "Please enter a valid email address."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": True,
+                        "step": "deposit_awaiting_email",
+                        "amount": amount,
+                    }
+                },
+            }
+
+        try:
+            provider = payment_provider_registry.get("paystack")
+
+            payment = PaymentService.create_payment(
+                db=db,
+                provider=provider,
+                member_account=member_account,
+                amount=amount,
+                currency="ZAR",
+                email=email,
+            )
+
+            db.commit()
+
+        except ValueError as exc:
+            db.rollback()
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": str(exc),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        except Exception:
+            db.rollback()
+            SessionManager.finish_wallet(session)
+
+            return {
+                "message": (
+                    "I couldn't create the payment right now. "
+                    "Please try again."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        SessionManager.finish_wallet(session)
+
+        if not payment.payment_url:
+            return {
+                "message": (
+                    "The payment was created, but no checkout link "
+                    "was returned. Please try again."
+                ),
+                "type": "text",
+                "context_update": {
+                    "wallet": {
+                        "active": False,
+                    }
+                },
+            }
+
+        return {
+            "message": (
+                f"Your *R{amount:,.2f}* wallet deposit is ready.\n\n"
+                "Complete your payment here:\n"
+                f"{payment.payment_url}\n\n"
+                "Your wallet will be credited after the payment is "
+                "successfully confirmed."
+            ),
+            "type": "text",
+            "context_update": {
+                "wallet": {
+                    "active": False,
+                }
+            },
+        }
 
     # ------------------------------------------------------------------
     # AMOUNT

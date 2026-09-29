@@ -26,9 +26,13 @@ class PaymentProvider(ABC):
         currency: str,
         reference: str,
         member_account_id: UUID,
+        email: str,
     ) -> dict[str, Any]:
         """
         Create a payment with the external provider.
+
+        The provider receives the customer's email explicitly.
+        It must not query Warima's DB for identity data.
         """
         raise NotImplementedError
 
@@ -47,10 +51,11 @@ class PaymentProvider(ABC):
     def verify_payment(
         self,
         *,
-        provider_payment_id: str,
+        reference: str,
     ) -> PaymentVerificationResult:
         """
         Verify payment status and amount with the provider.
+        using the provider transaction reference.
         """
         raise NotImplementedError
 

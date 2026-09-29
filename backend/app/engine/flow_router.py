@@ -99,7 +99,7 @@ class FlowRouter:
 
         print("FLOW ROUTER SELECTED FLOW:", flow)
 
-        intent_name = intent.get("intnet", "")
+        intent_name = intent.get("intent", "")
 
         #---------------------------------------------------------
         # 3. ACTIVE FLOW
@@ -334,6 +334,16 @@ class FlowRouter:
             "identity verification",
         }:
             return "kyc"
+
+        # -------------------------------------------------------
+        # STOCKLANA INVESTMENT
+        # -------------------------------------------------------
+
+        if text in {
+            "invest_on_stocklana",
+        }:
+            return "stocklana_investment"
+
 
         # --------------------------------------------------------
         # INVESTMENT
@@ -582,6 +592,27 @@ class FlowRouter:
             )
 
         # --------------------------------------------------------
+        # STOCKLANA INVESTMENT
+        # --------------------------------------------------------
+
+        if command == "stocklana_investment":
+
+            return await self._route_flow(
+                flow="investment",
+                message=message,
+                intent={
+                    "intent": "investment.stocklana",
+                    "domain": "investment",
+                    "action": "stocklana",
+                    "parameters": {},
+                },
+                session=session,
+                session_context=session_context,
+                member_context=member_context,
+                db=db,
+            )
+
+        # --------------------------------------------------------
         # INVESTMENT
         # --------------------------------------------------------
 
@@ -591,9 +622,9 @@ class FlowRouter:
                 flow="investment",
                 message=message,
                 intent={
-                    "intent": "investment.view",
+                    "intent": "investment.start",
                     "domain": "investment",
-                    "action": "view",
+                    "action": "generic",
                     "parameters": {},
                 },
                 session=session,

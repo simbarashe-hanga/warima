@@ -214,6 +214,7 @@ async def process_message(db, event):
                     "user": user,
                     "identity": identity,
                     "member_account": member_account,
+                    "member_account_id": member_account.id,
                 },
                 db=db,
             )

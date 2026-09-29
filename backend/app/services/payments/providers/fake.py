@@ -30,6 +30,7 @@ class FakePaymentProvider(PaymentProvider):
         currency: str,
         reference: str,
         member_account_id: UUID,
+        email: str,
     ) -> dict[str, Any]:
         provider_payment_id = f"fake_{reference}"
 
@@ -67,11 +68,23 @@ class FakePaymentProvider(PaymentProvider):
     def verify_payment(
         self,
         *,
-        provider_payment_id: str,
+        reference: str,
     ) -> PaymentVerificationResult:
-        payment = self.get_payment(
-            provider_payment_id=provider_payment_id
+        payment = next(
+            (
+                payment
+                for payment in self.payments.values()
+                if payment["reference"] == reference
+            ),
+            None,
         )
+
+        if payment is None:
+            raise ValueError(
+                f"Fake payment not found for reference: {reference}"
+            )
+
+        provider_payment_id = payment["provider_payment_id"]
 
         return PaymentVerificationResult(
             verified=(

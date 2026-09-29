@@ -10,6 +10,9 @@ services:
     env_file:
       - ./backend/.env
 
+    volumes:
+      - ./secrets:/opt/warima/secrets:ro
+
     restart: unless-stopped
 
   worker:
@@ -22,5 +25,8 @@ services:
 
     depends_on:
       - api
+
+    volumes:
+      - ./secrets:/opt/warima/secrets
 
     restart: unless-stopped

@@ -10,7 +10,7 @@ class Settings:
     )
     SOLANA_RPC_URL: str = os.getenv(
         "SOLANA_RPC_URL",
-        "https://api/devnet.solana.com",
+        "https://api.devnet.solana.com",
     )
     SOLANA_NETWORK: str = os.getenv(
         "SOLANA_NETWORK",
@@ -18,6 +18,26 @@ class Settings:
     )
     SOLANA_TREASURY_PRIVATE_KEY: str = os.getenv(
         "SOLANA_TREASURY_PRIVATE_KEY",
+        "",
+    )
+
+    SOLANA_INVESTMENT_DESTINATION_ADDRESS: str | None = os.getenv(
+        "SOLANA_INVESTMENT_DESTINATION_ADDRESS",
+        None,
+    )
+
+    # Stocklana runs independently from the generic
+    # Warima Solana settlement environment.
+    STOCKLANA_SOLANA_RPC_URL: str = os.getenv(
+        "STOCKLANA_SOLANA_RPC_URL",
+        "https://api.mainnet-beta.solana.com",
+    )
+    STOCKLANA_SOLANA_NETWORK: str = os.getenv(
+        "STOCKLANA_SOLANA_NETWORK",
+        "mainnet",
+    )
+    STOCKLANA_SOLANA_TREASURY_KEYPAIR_FILE: str = os.getenv(
+        "STOCKLANA_SOLANA_TREASURY_KEYPAIR_FILE",
         "",
     )
     DEPLOYER_PRIVATE_KEY: str = os.getenv("DEPLOYER_PRIVATE_KEY", "")
@@ -29,5 +49,16 @@ class Settings:
     ENTRY_POINT_ADDRESS: str = os.getenv("ENTRY_POINT", "")
     ACCOUNT_FACTORY_ADDRESS: str = os.getenv("ACCOUNT_FACTORY_ADDRESS", "")
     ABI_DIR: str = "/app/app/abi"
+
+    # Payment gateway
+    PAYSTACK_SECRET_KEY: str = os.getenv(
+        "PAYSTACK_SECRET_KEY",
+        "",
+    )
+
+    PAYSTACK_BASE_URL: str = os.getenv(
+        "PAYSTACK_BASE_URL",
+        "https://api.paystack.co",
+    )
 
 settings = Settings()

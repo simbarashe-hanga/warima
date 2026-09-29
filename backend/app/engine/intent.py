@@ -256,6 +256,24 @@ def detect_intent(
             "create",
         )
 
+    # -------------------------------------------------------------------------
+    # WALLET DEPOSIT / FUNDING
+    # -------------------------------------------------------------------------
+
+    if text in {
+        "deposit",
+        "deposit money",
+        "fund wallet",
+        "add money",
+        "add money to wallet",
+        "fund my wallet",
+    }:
+        return _intent(
+            "wallet.deposit",
+            "wallet",
+            "deposit",
+        )
+
     # =========================================================================
     # CONTRIBUTIONS
     # =========================================================================
@@ -273,7 +291,6 @@ def detect_intent(
         "save money",
         "start saving",
         "save",
-        "deposit",
     }:
         return _intent(
             "contribution.start",

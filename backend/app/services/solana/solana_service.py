@@ -1,3 +1,4 @@
+import json
 from typing import Dict
 
 from solana.rpc.async_api import AsyncClient
@@ -11,18 +12,53 @@ from app.core.config import settings
 class SolanaService:
     """Service for Solana blockchain operations."""
 
-    def __init__(self):
-        self.rpc_url = settings.SOLANA_RPC_URL
-        self.network = settings.SOLANA_NETWORK
+    def __init__(
+        self,
+        rpc_url: str | None = None,
+        network: str | None = None,
+        treasury_private_key: str | None = None,
+        treasury_keypair_file: str | None = None,
+    ):
+        self.rpc_url = (
+            rpc_url
+            if rpc_url is not None
+            else settings.SOLANA_RPC_URL
+        )
+
+        self.network = (
+            network
+            if network is not None
+            else settings.SOLANA_NETWORK
+        )
+
+        self.treasury_private_key = (
+            treasury_private_key
+            if treasury_private_key is not None
+            else settings.SOLANA_TREASURY_PRIVATE_KEY
+        )
+
+        self.treasury_keypair_file = treasury_keypair_file
 
     def get_treasury_keypair(self) -> Keypair:
-        """Load the Warima Solana tresury keypair."""
+        """Load the configured Warima Solana treasury keypair."""
 
-        private_key = settings.SOLANA_TREASURY_PRIVATE_KEY
+        if self.treasury_keypair_file:
+            try:
+                with open(self.treasury_keypair_file) as f:
+                    secret = bytes(json.load(f))
+
+                return Keypair.from_bytes(secret)
+
+            except Exception as exc:
+                raise RuntimeError(
+                    "Failed to load Solana treasury keypair file"
+                ) from exc
+
+        private_key = self.treasury_private_key
 
         if not private_key:
             raise RuntimeError(
-                "SOLANA_TREASURY_PRIVATE_KEY is not configured"
+                "Solana treasury private key is not configured"
             )
 
         return Keypair.from_base58_string(private_key)

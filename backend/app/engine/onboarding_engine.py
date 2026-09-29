@@ -1,5 +1,3 @@
-from typing import Any, Dict
-
 from app.engine.onboarding_steps import OnboardingStep
 from app.engine import onboarding_messages as msg
 
@@ -7,72 +5,44 @@ from app.schemas.onboarding import OnboardingResult
 from app.services.identity.session_manager import SessionManager
 
 
-
 class OnboardingEngine:
-    """
-    Handles the onboarding conversation flow.
-
-    User persistance belongs outside this engine.
-    The engine only coordinates onboarding state and user fields.
-    """
-
 
     @classmethod
     async def handle(
         cls,
         message: str,
-        intent: Dict[str, Any],
-        session: Dict[str, Any],
-        member_context: Dict[str, Any],
+        intent=None,
+        session=None,
+        member_context=None,
     ) -> OnboardingResult:
+
+        intent = intent or {}
+        member_context = member_context or {}
 
         context = SessionManager.context(session)
 
-        onboarding = context["onboarding"]
-
-        step = onboarding.get(
-            "step",
-            OnboardingStep.WELCOME,
-        )
-
-        print("=" * 70)
-        print("ONBOARDING ENGINE")
-        print("STEP:", step)
-        print("MESSAGE:", message)
-        print("=" * 70)
+        step = SessionManager.onboarding_step(session)
 
         if step == OnboardingStep.WELCOME:
             return cls._welcome(session)
 
-        if step == OnboardingStep.FIRST_NAME:
+        elif step == OnboardingStep.FIRST_NAME:
             return cls._first_name(session, message)
 
-        if step == OnboardingStep.LAST_NAME:
+        elif step == OnboardingStep.LAST_NAME:
             return cls._last_name(session, message)
 
-        if step == OnboardingStep.DISPLAY_NAME:
+        elif step == OnboardingStep.DISPLAY_NAME:
             return cls._display_name(session, message)
 
-        if step == OnboardingStep.LANGUAGE:
+        elif step == OnboardingStep.LANGUAGE:
             return cls._language(session, message)
 
-        if step == OnboardingStep.EMAIL:
+        elif step == OnboardingStep.EMAIL:
             return cls._email(session, message)
 
-        if step == OnboardingStep.CONFIRM:
+        elif step == OnboardingStep.CONFIRM:
             return cls._confirm(session, message)
-
-        #-------------------------------------------------------------------------
-        # UNKNOWN STATE
-        #-------------------------------------------------------------------------
-
-        print(
-            "ONBOARDING ENGINE: "
-            "Unknown onboarding step:",
-            step,
-        )
-
-        cls._reset_onboarding(session)
 
         return OnboardingResult(
             message=(
@@ -83,22 +53,31 @@ class OnboardingEngine:
             next_step=OnboardingStep.FIRST_NAME,
         )
 
+    # =================================================================
+    # WELCOME
+    # =================================================================
+
     @staticmethod
     def _welcome(session) -> OnboardingResult:
 
-        context = SessionManager.context(session)
-
-        onboarding = context["onboarding"]
-
-        onboarding["active"] = True
-
-        onboarding["step"] = OnboardingStep.FIRST_NAME
+        SessionManager.set_onboarding_step(
+            session,
+            OnboardingStep.FIRST_NAME,
+        )
 
         return OnboardingResult(
-            message=msg.WELCOME + "\n\n" + msg.FIRST_NAME,
+            message=(
+                msg.WELCOME
+                + "\n\n"
+                + msg.FIRST_NAME
+            ),
             completed=False,
             next_step=OnboardingStep.FIRST_NAME,
         )
+
+    # =================================================================
+    # FIRST NAME
+    # =================================================================
 
     @staticmethod
     def _first_name(
@@ -116,7 +95,6 @@ class OnboardingEngine:
             )
 
         context = SessionManager.context(session)
-
         onboarding = context["onboarding"]
 
         onboarding["first_name"] = value
@@ -131,6 +109,10 @@ class OnboardingEngine:
             completed=False,
             next_step=OnboardingStep.LAST_NAME,
         )
+
+    # =================================================================
+    # LAST NAME
+    # =================================================================
 
     @staticmethod
     def _last_name(
@@ -148,7 +130,6 @@ class OnboardingEngine:
             )
 
         context = SessionManager.context(session)
-
         onboarding = context["onboarding"]
 
         onboarding["last_name"] = value
@@ -164,6 +145,10 @@ class OnboardingEngine:
             next_step=OnboardingStep.DISPLAY_NAME,
         )
 
+    # =================================================================
+    # DISPLAY NAME
+    # =================================================================
+
     @staticmethod
     def _display_name(
         session,
@@ -174,13 +159,12 @@ class OnboardingEngine:
 
         if not value:
             return OnboardingResult(
-                message="Please enter the name you'd like us to use.",
+                message="Please enter the name you would like us to use.",
                 completed=False,
                 next_step=OnboardingStep.DISPLAY_NAME,
             )
 
         context = SessionManager.context(session)
-
         onboarding = context["onboarding"]
 
         onboarding["display_name"] = value
@@ -195,6 +179,10 @@ class OnboardingEngine:
             completed=False,
             next_step=OnboardingStep.LANGUAGE,
         )
+
+    # =================================================================
+    # LANGUAGE
+    # =================================================================
 
     @staticmethod
     def _language(
@@ -212,7 +200,6 @@ class OnboardingEngine:
             )
 
         context = SessionManager.context(session)
-
         onboarding = context["onboarding"]
 
         onboarding["language"] = value
@@ -228,6 +215,10 @@ class OnboardingEngine:
             next_step=OnboardingStep.EMAIL,
         )
 
+    # =================================================================
+    # EMAIL
+    # =================================================================
+
     @staticmethod
     def _email(
         session,
@@ -237,41 +228,71 @@ class OnboardingEngine:
         email = message.strip()
 
         context = SessionManager.context(session)
-
         onboarding = context["onboarding"]
 
+        # -------------------------------------------------------------
+        # Email is optional during onboarding.
+        # -------------------------------------------------------------
+
         if email.lower() == "skip":
+
             onboarding["email"] = None
 
         else:
 
             if "@" not in email:
                 return OnboardingResult(
-                    message="Please enter a valid email or reply SKIP.",
+                    message=(
+                        "Please enter a valid email "
+                        "or reply SKIP."
+                    ),
                     completed=False,
                     next_step=OnboardingStep.EMAIL,
                 )
 
             onboarding["email"] = email
 
+        # -------------------------------------------------------------
+        # Move to confirmation.
+        # -------------------------------------------------------------
+
         SessionManager.set_onboarding_step(
             session,
             OnboardingStep.CONFIRM,
         )
 
-        first_name = onboarding.get("first_name") or "Not Provided"
-        last_name = onboarding.get("last_name") or "Not Provided"
-        display_name = onboarding.get("display_name")  or "Not Provided"
-        language = onboarding.get("language") or "Not Provided"
-        user_email = onboarding.get("email") or "Not Provided"
+        first_name = (
+            onboarding.get("first_name")
+            or "Not Provided"
+        )
+
+        last_name = (
+            onboarding.get("last_name")
+            or "Not Provided"
+        )
+
+        display_name = (
+            onboarding.get("display_name")
+            or "Not Provided"
+        )
+
+        language = (
+            onboarding.get("language")
+            or "Not Provided"
+        )
+
+        user_email = (
+            onboarding.get("email")
+            or "Not Provided"
+        )
 
         summary = (
-            f"Please confirm your details:\n\n"
+            "Please confirm your details:\n\n"
             f"First Name: {first_name}\n"
             f"Surname: {last_name}\n"
             f"Display Name: {display_name}\n"
             f"Language: {language}\n"
-            f"Email: {email or 'Not Provided'}\n\n"
+            f"Email: {user_email}\n\n"
             "Reply YES to continue or NO to restart."
         )
 
@@ -281,6 +302,10 @@ class OnboardingEngine:
             next_step=OnboardingStep.CONFIRM,
         )
 
+    # =================================================================
+    # CONFIRMATION
+    # =================================================================
+
     @staticmethod
     def _confirm(
         session,
@@ -289,10 +314,14 @@ class OnboardingEngine:
 
         answer = message.strip().lower()
 
+        # -------------------------------------------------------------
+        # User rejected the details.
+        # -------------------------------------------------------------
+
         if answer not in {
             "yes",
             "y",
-            "1"
+            "1",
         }:
 
             OnboardingEngine._reset_onboarding(
@@ -308,35 +337,46 @@ class OnboardingEngine:
                 next_step=OnboardingStep.FIRST_NAME,
             )
 
-            context = SessionManager.context(session)
+        # -------------------------------------------------------------
+        # User confirmed.
+        # -------------------------------------------------------------
 
-            onboarding = context["onboarding"]
+        context = SessionManager.context(session)
+        onboarding = context["onboarding"]
 
-            display_name = (
-                onboarding.get("display_name")
-                or onboarding.get("first_name")
-                or "Warima Member"
-            )
+        display_name = (
+            onboarding.get("display_name")
+            or onboarding.get("first_name")
+            or "Warima Member"
+        )
 
-            SessionManager.complete_onboarding(session)
+        SessionManager.complete_onboarding(
+            session
+        )
 
-            return OnboardingResult(
-                message=(
-                    f"Welcome {display_name}! \n\n"
-                    "Your Warima profile has been created successfully."
-                ),
-                completed=True,
-                next_step=OnboardingStep.COMPLETE,
-                create_wallets=True,
-            )
+        return OnboardingResult(
+            message=(
+                f"Welcome {display_name}!\n\n"
+                "Your Warima profile has been "
+                "created successfully."
+            ),
+            completed=True,
+            next_step=OnboardingStep.COMPLETE,
+            create_wallets=True,
+        )
 
+    # =================================================================
+    # RESET
+    # =================================================================
 
-        @staticmethod
-        def _reset_onboarding(session):
+    @staticmethod
+    def _reset_onboarding(session):
 
-            context = SessionManager.context(session)
+        context = SessionManager.context(session)
 
-            context["onboarding"] = {
-                "active": True,
-                "step": OnboardingStep.FIRST_NAME,
-            }
+        context["onboarding"] = {
+            "active": True,
+            "step": OnboardingStep.FIRST_NAME,
+        }
+
+        session.context = context

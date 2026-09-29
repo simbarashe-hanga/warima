@@ -167,6 +167,7 @@ class StokvelInvestmentService:
                 == WalletTransactionType.CONTRIBUTION,
                 WalletTransaction.status
                 == WalletTransactionStatus.COMPLETED,
+                WalletTransaction.currency == "ZAR",
                 ~WalletTransaction.id.in_(allocated_subquery),
             )
             .order_by(WalletTransaction.created_at.asc())
@@ -266,21 +267,14 @@ class StokvelInvestmentService:
             db.add(allocation)
 
         # --------------------------------------------------------------
-        # Record treasury investment deployment
+        # Investment creation ends here.
+        #
+        # The investment remains PENDING until an external execution
+        # process successfully deploys the investment funds.
+        #
+        # Treasury investment debit and ACTIVE status belong to the
+        # execution boundary, not investment creation.
         # --------------------------------------------------------------
-
-        TreasuryLedgerService.record_investment_debit(
-            db,
-            treasury,
-            total_amount,
-            investment.id,
-        )
-
-        # --------------------------------------------------------------
-        # Activate investment
-        # --------------------------------------------------------------
-
-        investment.status = StokvelInvestmentStatus.ACTIVE
 
         db.flush()
 

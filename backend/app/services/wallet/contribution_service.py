@@ -96,6 +96,26 @@ class ContributionService:
         )
 
         # --------------------------------------------------------------
+        # Validate contribution currency
+        # --------------------------------------------------------------
+        #
+        # A contribution may only credit a treasury when the
+        # transaction currency matches the treasury denomination.
+        #
+        # Currency conversion belongs to a separate funding/
+        # conversion flow and must never happen implicitly.
+        # --------------------------------------------------------------
+
+        transaction_currency = transaction.currency
+
+        if transaction_currency != treasury.denomination.value:
+            raise ValueError(
+                f"Contribution currency {transaction_currency} "
+                f"does not match treasury denomination "
+                f"{treasury.denomination.value}"
+            )
+
+        # --------------------------------------------------------------
         # Debit member wallet
         # --------------------------------------------------------------
 

@@ -89,6 +89,7 @@ class SessionManager:
             {
                 "active": False,
                 "step": None,
+                "mode": None,
             },
         )
 
@@ -702,16 +703,22 @@ class SessionManager:
         return cls.investment_context(session)["step"]
 
     @classmethod
+    def investment_mode(cls, session):
+        return cls.investment_context(session).get("mode")
+
+    @classmethod
     def start_investment(
         cls,
         session,
         step=None,
+        mode="generic",
     ):
         context = cls.context(session)
 
         context["investment"] = {
             "active": True,
             "step": step,
+            "mode": mode,
         }
 
         session.context = context
@@ -746,6 +753,7 @@ class SessionManager:
         context["investment"] = {
             "active": False,
             "step": None,
+            "mode": None,
         }
 
         session.context = context

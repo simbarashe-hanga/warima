@@ -4,6 +4,7 @@ from sqlalchemy import func
 
 from app.models.enums import WalletLedgerEntryType
 from app.models.treasury_ledger import TreasuryLedger
+from app.models.wallet_transaction import WalletTransaction
 
 
 class TreasuryLedgerService:
@@ -47,13 +48,29 @@ class TreasuryLedgerService:
 
         amount = TreasuryLedgerService._validate_amount(amount)
 
+        transaction = (
+            db.query(WalletTransaction)
+            .filter(WalletTransaction.id == transaction_id)
+            .one_or_none()
+        )
+
+        if transaction is None:
+            raise ValueError("Wallet transaction not found")
+
+        if transaction.currency != treasury.denomination.value:
+            raise ValueError(
+                f"Transaction currency {transaction.currency} "
+                f"does not match treasury denomination "
+                f"{treasury.denomination.value}"
+            )
+
         entry = TreasuryLedger(
             treasury_id=treasury.id,
             transaction_id=transaction_id,
             investment_id=None,
             entry_type=WalletLedgerEntryType.CREDIT,
             amount=amount,
-            currency=treasury.denomination.value,
+            currency=transaction.currency,
         )
 
         db.add(entry)
@@ -198,11 +215,14 @@ class TreasuryLedgerService:
 
         TreasuryLedgerService._validate_treasury(treasury)
 
+        treasury_currency = treasury.denomination.value
+
         credit = (
             db.query(func.coalesce(func.sum(TreasuryLedger.amount), 0))
             .filter(
                 TreasuryLedger.treasury_id == treasury.id,
                 TreasuryLedger.entry_type == WalletLedgerEntryType.CREDIT,
+                TreasuryLedger.currency == treasury_currency,
             )
             .scalar()
         )
@@ -212,6 +232,7 @@ class TreasuryLedgerService:
             .filter(
                 TreasuryLedger.treasury_id == treasury.id,
                 TreasuryLedger.entry_type == WalletLedgerEntryType.DEBIT,
+                TreasuryLedger.currency == treasury_currency,
             )
             .scalar()
         )

@@ -34,6 +34,7 @@ class PaymentService:
         member_account,
         amount,
         currency: str = "ZAR",
+        email: str | None = None,
     ) -> Payment:
         """
         Create a Warima payment and initialize it with provider
@@ -41,6 +42,22 @@ class PaymentService:
 
         if member_account is None:
             raise ValueError("Member account is required")
+
+        user = member_account.user
+
+        if user is None:
+            raise ValueError("Member account user is required")
+
+        if email is None: 
+            email = user.email
+
+        if not email:
+            raise ValueError("User email is required to initialize payment")
+
+        email = email.strip().lower()
+
+        if not email:
+            raise ValueError("User email is required to initialize payment")
 
         amount = Decimal(str(amount))
 
@@ -72,6 +89,7 @@ class PaymentService:
                 currency=currency,
                 reference=reference,
                 member_account_id=member_account.id,
+                email=email,
             )
 
             provider_payment_id = provider_result.get(

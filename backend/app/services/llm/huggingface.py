@@ -65,8 +65,12 @@ async def chat(
     response = await client.chat_completion(
         model=os.getenv("HF_MODEL"),
         messages=messages,
-        temperature=0.6,
-        max_tokens=250,
+        temperature=float(
+            os.getenv("LLM_TEMPERATURE", "0.6")
+        ),
+        max_tokens=int(
+            os.getenv("LLM_MAX_TOKENS", "250")
+        ),
     )
 
     return response.choices[0].message.content.strip()

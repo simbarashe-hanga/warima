@@ -1,4 +1,5 @@
 from app.services.payments.payment_provider import PaymentProvider
+from app.services.payments.providers.paystack import PaystackProvider
 
 
 class PaymentProviderRegistry:
@@ -13,12 +14,16 @@ class PaymentProviderRegistry:
         name = provider.name.strip().lower()
 
         if not name:
-            raise ValueError("Payment provider must have a name")
+            raise ValueError(
+                "Payment provider must have a name"
+            )
 
         self._providers[name] = provider
 
     def get(self, name: str) -> PaymentProvider:
-        provider = self._providers.get(name.strip().lower())
+        provider = self._providers.get(
+            name.strip().lower()
+        )
 
         if provider is None:
             raise ValueError(
@@ -29,3 +34,14 @@ class PaymentProviderRegistry:
 
     def has(self, name: str) -> bool:
         return name.strip().lower() in self._providers
+
+
+# ------------------------------------------------------------------
+# Application payment provider registry
+# ------------------------------------------------------------------
+
+payment_provider_registry = PaymentProviderRegistry()
+
+payment_provider_registry.register(
+    PaystackProvider()
+)

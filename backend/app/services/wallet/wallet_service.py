@@ -257,3 +257,58 @@ class WalletService:
             )
             .one_or_none()
         )
+
+    @staticmethod
+    def create_investment(
+        db,
+        member_account,
+        amount,
+        stokvel_id,
+        currency="SOL",
+    ) -> WalletTransaction:
+        """
+        Create a treasury-funded investment transaction.
+
+        The member wallet is used as the transaction context,
+        but the member wallet is NOT debited.
+
+        Funds are sourced from the stokvel treasury.
+        """
+
+        if member_account is None:
+            raise ValueError(
+                "Member account is required"
+            )
+
+        if amount <= 0:
+            raise ValueError(
+                "Investment amount must be greater than zero"
+            )
+
+        if not stokvel_id:
+            raise ValueError(
+                "Stokvel ID is required for investment"
+            )
+
+        wallet = WalletService.get_or_create_wallet(
+            db,
+            member_account,
+        )
+
+        reference = f"INV-{uuid.uuid4().hex[:12].upper()}"
+
+        transaction = WalletTransaction(
+            wallet_id=wallet.id,
+            stokvel_id=stokvel_id,
+            transaction_type=WalletTransactionType.INVESTMENT,
+            amount=amount,
+            currency=currency,
+            status=WalletTransactionStatus.PENDING,
+            reference=reference,
+            description="Treasury investment request",
+        )
+
+        db.add(transaction)
+        db.flush()
+
+        return transaction
