@@ -1,3 +1,5 @@
+from sqlalchemy.exc import IntegrityError
+
 from app.models.user import User
 from app.models.user_identity import UserIdentity
 from app.models.user_session import UserSession
@@ -38,6 +40,31 @@ class UserService:
     #
     #############################################################################
 
+    def _authenticate_existing_identity(self, identity):
+        session = self.session_repo.get_by_identity(identity.id)
+
+        if session is None:
+            session = UserSession(
+                user_identity_id=identity.id,
+                state=SessionState.START,
+            )
+            SessionManager.initialize(session)
+            self.session_repo.create(session)
+        else:
+            SessionManager.initialize(session)
+
+        member_account = self.member_account_service.ensure_member_account(
+            identity.user,
+        )
+
+        return AuthenticationResult(
+            user=identity.user,
+            identity=identity,
+            session=session,
+            member_account=member_account,
+            is_new=False,
+        )
+
     def authenticate_whatsapp(
         self,
         wa_id: str,
@@ -73,46 +100,7 @@ class UserService:
 
         if identity:
             print("[3] Existing identity found")
-            session = self.session_repo.get_by_identity(
-                identity.id,
-            )
-
-            #
-            # Recover missing session
-            #
-
-            if session is None:
-                print("[4] Session missing. Creating.") 
-
-                session = UserSession(
-                    user_identity_id=identity.id,
-                    state=SessionState.START,
-                )
-
-                SessionManager.initialize(session)
-
-                self.session_repo.create(session)
-
-            else:
-                SessionManager.initialize(session)
-
-            #
-            # Ensure default context exists
-            #
-
-            member_account = (
-                self.member_account_service.ensure_member_account(
-                    identity.user,
-                )
-            )
-
-            return AuthenticationResult(
-                user=identity.user,
-                identity=identity,
-                session=session,
-                member_account=member_account,
-                is_new=False,
-            )
+            return self._authenticate_existing_identity(identity)
 
 
         #
@@ -134,7 +122,26 @@ class UserService:
             provider_identifier=wa_id,
         )
 
-        self.identity_repo.create(identity)
+        try:
+            self.identity_repo.create(identity)
+        except IntegrityError as exc:
+            original = getattr(exc, "orig", None)
+            diagnostic = getattr(original, "diag", None)
+            constraint_name = getattr(diagnostic, "constraint_name", None)
+
+            if constraint_name != "uq_provider_identifier":
+                raise
+
+            self.db.rollback()
+
+            existing_identity = self.identity_repo.find_by_provider(
+                IdentityProvider.WHATSAPP,
+                wa_id,
+            )
+            if existing_identity is None:
+                raise
+
+            return self._authenticate_existing_identity(existing_identity)
 
         session = UserSession(
             user_identity_id=identity.id,

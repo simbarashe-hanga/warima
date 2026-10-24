@@ -9,7 +9,7 @@ async def send_message(user_id: str, text: str):
     if not token or not phone_id:
         raise Exception("Missing WhatsApp env vars")
 
-    url = f"https://graph.facebook.com/v25.0/{phone_id}/messages"
+    url = f"https://graph.facebook.com/v26.0/{phone_id}/messages"
 
     headers = {
         "Authorization": f"Bearer {token}",

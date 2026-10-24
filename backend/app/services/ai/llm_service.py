@@ -14,17 +14,17 @@ async def chat(
     system_prompt: str | None = None,
 ) -> str:
 
-    provider = os.getenv("LLM_PROVIDER", "huggingface").lower().strip()
+    provider = os.getenv("LLM_PROVIDER", "gemini").lower().strip()
 
-    if provider == "huggingface":
-        return await huggingface_chat(
+    if provider == "gemini":
+        return await gemini_chat(
             user_message,
             history,
             system_prompt=system_prompt,
         )
 
-    if provider == "gemini":
-        return await gemini_chat(
+    if provider == "huggingface":
+        return await huggingface_chat(
             user_message,
             history,
             system_prompt=system_prompt,

@@ -1,5 +1,7 @@
 import uuid
 
+from sqlalchemy import Integer, cast, func, text
+
 from app.models.member_account import MemberAccount
 from app.models.enums import (
     MemberAccountStatus,
@@ -39,18 +41,31 @@ class MemberAccountService:
         return self.repo.create(account)
 
     def generate_account_number(self):
-        account = (
-            self.db.query(MemberAccount)
-            .order_by(MemberAccount.created_at.desc())
-            .first()
+        # Serialize allocation across transactions using this generator.
+        self.db.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_key)"),
+            {"lock_key": 872014620261},
         )
 
-        if not account:
-            return "WRM00000001"
+        # Ignore demo identifiers; use only WRM followed by eight digits.
+        last_number = (
+            self.db.query(
+                func.max(
+                    cast(
+                        func.substring(MemberAccount.account_number, 4, 8),
+                        Integer,
+                    )
+                )
+            )
+            .filter(
+                MemberAccount.account_number.op("~")(r"^WRM[0-9]{8}$")
+            )
+            .scalar()
+        )
 
-        try:
-            last = int(account.account_number.replace("WRM", ""))
-        except Exception:
-            last = 0
+        next_number = (last_number or 0) + 1
 
-        return f"WRM{last + 1:08d}"
+        if next_number > 99_999_999:
+            raise ValueError("Member account number sequence is exhausted")
+
+        return f"WRM{next_number:08d}"

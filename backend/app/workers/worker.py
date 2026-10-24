@@ -138,7 +138,7 @@ async def process_message(db, event):
 
             onboarding = OnboardingService(db)
 
-            result = onboarding.process(
+            result = await onboarding.process(
                 user=user,
                 session=session,
                 member_account=member_account,
