@@ -1,5 +1,10 @@
 # backend/app/services/ai/agent_service.py
 
+import re
+
+from decimal import Decimal, InvalidOperation
+from app.services.ai.tools.tool_registry import ToolRegistry
+
 from app.services.ai.context_builder import ContextBuilder
 from app.services.ai.llm_service import chat
 from app.services.identity.session_manager import SessionManager
@@ -34,6 +39,79 @@ class AgentService:
         """
         pass
 
+    @staticmethod
+    def _detect_tool_intent(message: str) -> str | None:
+        text = (message or "").lower().strip()
+        text = re.sub(r"[^\w\s']", "", text)
+        text = re.sub(r"\s+", " ", text)
+
+        balance_phrases = {
+            "balance",
+            "my balance",
+            "check balance",
+            "check my balance",
+            "show my balance",
+            "show me my balance",
+            "tell me my balance",
+            "what is my balance",
+            "what's my balance",
+            "whats my balance",
+            "what is my wallet balance",
+            "what's my wallet balance",
+            "whats my wallet balance",
+            "how much money do i have",
+            "how much do i have in my wallet",
+            "how much is in my wallet",
+            "what is in my wallet",
+            "what's in my wallet",
+            "whats in my wallet",
+            "i want to check my balance",
+            "i want to know my balance",
+            "can you check my balance",
+            "please check my balance",
+        }
+
+        if text in balance_phrases:
+            return "wallet_balance"
+
+        return None
+
+    @staticmethod
+    def _format_tool_response(tool_name: str, result: dict) -> str:
+        if not result.get("ok"):
+            return result.get(
+                "error",
+                "I couldn't retrieve that information right now.",
+            )
+
+        if tool_name == "wallet_balance":
+            if not result.get("wallet_found"):
+                return result.get(
+                    "message",
+                    "No wallet was found for your account.",
+                )
+
+            try:
+                amount = Decimal(result["balance"])
+                formatted_amount = f"{amount:,.2f}"
+            except (KeyError, ValueError, TypeError, InvalidOperation):
+                return "I couldn't retrieve your balance right now."
+
+            currency = result.get("currency")
+
+            if currency == "ZAR":
+                return f"Your available wallet balance is R{formatted_amount}."
+
+            if not currency:
+                return "I couldn't retrieve your balance right now."
+
+            return (
+                f"Your available wallet balance is "
+                f"{currency} {formatted_amount}."
+            )
+
+        return "I couldn't retrieve that information right now."
+
     # ==================================================================
     # PROCESS MESSAGE
     # ==================================================================
@@ -45,6 +123,7 @@ class AgentService:
         session,
         member_account,
         message: str,
+        db=None,
     ) -> dict:
 
         # --------------------------------------------------------------
@@ -98,19 +177,42 @@ class AgentService:
         # Send message to LLM
         # --------------------------------------------------------------
 
-        print("=" * 70)
-        print("AI AGENT")
-        print("MESSAGE:", message)
-        print("HISTORY COUNT:", len(history))
-        print("=" * 70)
+        # --------------------------------------------------------------
+        # Allowlisted tool dispatch
+        # --------------------------------------------------------------
 
-        response = await chat(
-            user_message=message,
-            history=history,
-            system_prompt=system_prompt,
-        )
+        tool_name = self._detect_tool_intent(message)
 
-        response = (response or "").strip()
+        if tool_name:
+            tool_result = ToolRegistry.execute(
+                tool_name,
+                db=db,
+                member_account=member_account,
+            )
+
+            response = self._format_tool_response(
+                tool_name,
+                tool_result,
+            )
+
+        else:
+            # ----------------------------------------------------------
+            # Ordinary conversation: use the configured LLM
+            # ----------------------------------------------------------
+
+            print("=" * 70)
+            print("AI AGENT")
+            print("MESSAGE:", message)
+            print("HISTORY COUNT:", len(history))
+            print("=" * 70)
+
+            response = await chat(
+                user_message=message,
+                history=history,
+                system_prompt=system_prompt,
+            )
+
+            response = (response or "").strip()
 
         # --------------------------------------------------------------
         # Fallback

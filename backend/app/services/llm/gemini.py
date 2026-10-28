@@ -45,7 +45,7 @@ async def chat(
             }
         )
 
-    chat = client.chats.create(
+    chat = client.aio.chats.create(
         model=os.getenv(
             "GEMINI_MODEL",
             "gemini-3.8-flash",

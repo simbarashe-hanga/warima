@@ -405,6 +405,21 @@ class StokvelService:
             .first()
         )
 
+    def get_membership_record(
+        self,
+        member_account_id,
+        stokvel_id,
+    ) -> Membership | None:
+        """Return a membership regardless of its current status."""
+        return (
+            self.db.query(Membership)
+            .filter(
+                Membership.member_account_id == member_account_id,
+                Membership.stokvel_id == stokvel_id,
+            )
+            .first()
+        )
+
     def get_stokvel_members(self, stokvel_id) -> list[Membership]:
         """
         Return active memberships for a stokvel with member account

@@ -196,6 +196,7 @@ class FlowRouter:
             session=session,
             session_context=session_context,
             member_context=member_context,
+            db=db,
         )
 
         return self._finalise(result, session_context)
@@ -895,6 +896,7 @@ class FlowRouter:
         session,
         session_context: Dict[str, Any],
         member_context: Dict[str, Any],
+        db=None,
     ):
 
         agent_context = dict(
@@ -926,6 +928,7 @@ class FlowRouter:
                 session=session,
                 member_account=member_context.get("member_account"),
                 message=message,
+                db=db,
             )
 
             return result

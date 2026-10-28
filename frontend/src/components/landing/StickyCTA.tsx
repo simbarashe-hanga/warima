@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const WHATSAPP_LINK = "https://wa.me/15556317694?text=Hi%20Warima";
+const WHATSAPP_LINK = "https://wa.me/27752606348";
 
 const StickyCTA = () => {
   const [visible, setVisible] = useState(false);

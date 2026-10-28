@@ -361,9 +361,7 @@ class StokvelEngine:
         service,
         db,
     ):
-
         code = message.strip().upper()
-
         stokvel = service.get_stokvel_by_join_code(code)
 
         if stokvel is None:
@@ -378,48 +376,73 @@ class StokvelEngine:
 
         if stokvel.status.value != "ACTIVE":
             return {
-                "message": (
-                    "That stokvel is not currently active."
-                ),
+                "message": "That stokvel is not currently active.",
                 "type": "text",
                 "context_update": {},
             }
 
-        existing = service.get_membership(
+        existing = service.get_membership_record(
             member_account.id,
             stokvel.id,
         )
 
-        if existing:
-            SessionManager.set_selected_stokvel(
-                session,
-                stokvel.id,
-            )
+        if existing is not None:
+            status = existing.status.value
+
+            if status == "ACTIVE":
+                SessionManager.finish_stokvel(session)
+                return {
+                    "message": (
+                        f"You're already a member of '{stokvel.name}'."
+                    ),
+                    "type": "text",
+                    "context_update": {
+                        "stokvel": {
+                            "selected_stokvel_id": str(stokvel.id),
+                        },
+                    },
+                }
+
             SessionManager.finish_stokvel(session)
 
+            if status == "PENDING":
+                message_text = (
+                    f"Your membership in '{stokvel.name}' is pending. "
+                    "Please ask the stokvel owner or an admin to approve it."
+                )
+            elif status == "SUSPENDED":
+                message_text = (
+                    f"Your membership in '{stokvel.name}' is suspended. "
+                    "Please contact the stokvel owner or an admin."
+                )
+            elif status == "LEFT":
+                message_text = (
+                    f"You previously left '{stokvel.name}'. "
+                    "Please ask the stokvel owner or an admin to restore "
+                    "your membership."
+                )
+            else:
+                message_text = (
+                    "Your membership status could not be verified. "
+                    "Please contact the stokvel owner or an admin."
+                )
+
             return {
-                "message": (
-                    f"You're already a member of '{stokvel.name}'."
-                ),
+                "message": message_text,
                 "type": "text",
                 "context_update": {},
             }
 
-        membership = service.add_member(
+        service.add_member(
             member_account_id=member_account.id,
             stokvel_id=stokvel.id,
             role=MembershipRole.MEMBER,
         )
 
-        blockchain_account = self._ensure_blockchain_account(
+        self._ensure_blockchain_account(
             stokvel=stokvel,
             member_account_id=member_account.id,
             db=db,
-        )
-
-        SessionManager.set_selected_stokvel(
-            session,
-            stokvel.id,
         )
 
         SessionManager.finish_stokvel(session)
@@ -430,7 +453,11 @@ class StokvelEngine:
                 f"Join code: *{stokvel.join_code}*"
             ),
             "type": "text",
-            "context_update": {},
+            "context_update": {
+                "stokvel": {
+                    "selected_stokvel_id": str(stokvel.id),
+                },
+            },
         }
 
     # -----------------------------------------------------------------
