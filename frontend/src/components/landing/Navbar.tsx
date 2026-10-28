@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import warimaLogo from "@/assets/warima-logo.png";
 
-const WHATSAPP_LINK = "https://wa.me/27752606348";
+const WHATSAPP_LINK = "https://wa.me/27752606348?text=Hi%20Warima";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
